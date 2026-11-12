@@ -142,7 +142,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       {/* Main Sidebar */}
       <aside
-        className={`fixed top-0 bottom-0 left-0 z-50 w-72 bg-[#08090d]/98 backdrop-blur-2xl border-r border-white/5 flex flex-col justify-between transition-transform duration-300 ease-in-out p-5 ${
+        className={`fixed top-0 bottom-0 left-0 z-50 w-72 max-w-[80vw] bg-[#08090d]/98 backdrop-blur-2xl border-r border-white/5 flex flex-col justify-between transition-transform duration-300 ease-in-out p-4 sm:p-5 overflow-y-auto overflow-x-hidden select-none ${
           isMobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         }`}
       >
@@ -305,10 +305,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <button
                   key={item.id}
                   onClick={() => handleNavClick(item.id)}
-                  className={`w-full flex items-center justify-between px-3.5 py-3 rounded-2xl text-sm font-semibold transition-all duration-200 focus:outline-none focus:ring-4 focus:ring-emerald-400 focus:scale-[1.03] ${
+                  className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-emerald-400 ${
                     isActive
                       ? "bg-emerald-500 text-black font-extrabold shadow-lg shadow-emerald-500/25"
-                      : "text-gray-300 hover:text-white hover:bg-white/5"
+                      : "text-gray-300 hover:text-white hover:bg-white/5 focus:bg-white/10"
                   }`}
                 >
                   <div className="flex items-center gap-3">
@@ -337,10 +337,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
               onOpenSamsungInstaller();
               setIsMobileOpen(false);
             }}
-            className="w-full flex items-center justify-between p-3 rounded-2xl bg-gradient-to-r from-emerald-500/20 via-emerald-500/10 to-transparent hover:from-emerald-500/30 border border-emerald-500/40 text-left transition-all group"
+            className="w-full flex items-center justify-between p-3 rounded-xl bg-gradient-to-r from-emerald-500/20 via-emerald-500/10 to-transparent hover:from-emerald-500/30 border border-emerald-500/40 text-left transition-all group focus:outline-none focus:ring-2 focus:ring-emerald-400"
           >
             <div className="flex items-center gap-2.5">
-              <div className="p-2 rounded-xl bg-emerald-500 text-black shadow-md shadow-emerald-500/30">
+              <div className="p-2 rounded-lg bg-emerald-500 text-black shadow-md shadow-emerald-500/30">
                 <Tv className="w-4 h-4" />
               </div>
               <div>
@@ -370,7 +370,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               onOpenSettings();
               setIsMobileOpen(false);
             }}
-            className="w-full flex items-center justify-between px-3.5 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white border border-white/10 transition-colors text-xs font-semibold"
+            className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white border border-white/10 transition-colors text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-400"
           >
             <div className="flex items-center gap-2">
               <Settings className="w-4 h-4 text-emerald-400" />

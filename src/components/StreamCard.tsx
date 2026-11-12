@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { Play, Plus, Check, Star, Tv, Film } from "lucide-react";
 import { LiveStream, VodStream, SeriesItem, PlayableItem } from "@/types/iptv";
-import { formatImageUrl, getLiveStreamUrl, getMovieStreamUrl } from "@/services/iptv";
+import { formatImageUrl, getLiveStreamUrl, getMovieStreamUrl, extractReleaseYear } from "@/services/iptv";
 import { isFavorite, removeFavorite, saveFavorite } from "@/services/storage";
 
 interface StreamCardProps {
@@ -32,7 +32,8 @@ export const StreamCard: React.FC<StreamCardProps> = ({
       : (item as LiveStream | VodStream).stream_id;
   const rawTitle = (item as any).title || (item as any).name || "Sem Título";
   const title = rawTitle.replace(/\s*\(\d{4}\)$/, "").trim();
-  const year = (item as any).year || rawTitle.match(/\((\d{4})\)/)?.[1] || "";
+  const parsedYear = extractReleaseYear(item as any);
+  const year = parsedYear > 0 ? String(parsedYear) : ((item as any).year || rawTitle.match(/\((\d{4})\)/)?.[1] || "");
   const rating = (item as any).rating || (item as any).rating_5based;
 
   let posterUrl = "";
@@ -113,6 +114,7 @@ export const StreamCard: React.FC<StreamCardProps> = ({
       onClick={handleCardClick}
       tabIndex={0}
       role="button"
+      data-tv-card="true"
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.keyCode === 13) {
           e.preventDefault();

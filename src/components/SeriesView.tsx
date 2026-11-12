@@ -3,7 +3,7 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { Video, Search, ChevronLeft, ChevronRight } from "lucide-react";
 import { Category, SeriesItem } from "@/types/iptv";
-import { cleanCategoryName } from "@/services/iptv";
+import { cleanCategoryName, extractReleaseYear } from "@/services/iptv";
 import { StreamCard } from "./StreamCard";
 
 interface SeriesViewProps {
@@ -64,7 +64,15 @@ export const SeriesView: React.FC<SeriesViewProps> = ({
     } else if (sortBy === "az") {
       list.sort((a, b) => (a.title || a.name || "").localeCompare(b.title || b.name || ""));
     } else {
-      list.sort((a, b) => Number(b.series_id || 0) - Number(a.series_id || 0));
+      // Ordena séries mais recentes (2026, 2025, 2024...) no topo
+      list.sort((a, b) => {
+        const yearA = extractReleaseYear(a);
+        const yearB = extractReleaseYear(b);
+        if (yearB !== yearA) {
+          return yearB - yearA;
+        }
+        return Number(b.series_id || 0) - Number(a.series_id || 0);
+      });
     }
 
     return list;
@@ -149,7 +157,7 @@ export const SeriesView: React.FC<SeriesViewProps> = ({
       <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-3 mb-6">
         <button
           onClick={() => handleCategoryClick("all")}
-          className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold whitespace-nowrap transition-all ${
+          className={`flex-shrink-0 px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold whitespace-nowrap transition-all focus:outline-none focus:ring-2 focus:ring-emerald-400 ${
             selectedCat === "all"
               ? "bg-emerald-500 text-black font-extrabold shadow-lg shadow-emerald-500/25"
               : "bg-surface hover:bg-surface-light text-gray-300 hover:text-white border border-white/5"
@@ -162,7 +170,7 @@ export const SeriesView: React.FC<SeriesViewProps> = ({
           <button
             key={cat.category_id}
             onClick={() => handleCategoryClick(cat.category_id)}
-            className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold whitespace-nowrap transition-all ${
+            className={`flex-shrink-0 px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold whitespace-nowrap transition-all focus:outline-none focus:ring-2 focus:ring-emerald-400 ${
               selectedCat === cat.category_id
                 ? "bg-emerald-500 text-black font-extrabold shadow-lg shadow-emerald-500/25"
                 : "bg-surface hover:bg-surface-light text-gray-300 hover:text-white border border-white/5"

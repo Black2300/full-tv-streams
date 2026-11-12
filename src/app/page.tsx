@@ -32,6 +32,7 @@ import {
   getMovieStreamUrl,
   getEpisodeStreamUrl,
   getLiveStreamUrl,
+  sortMediaByRecent,
 } from "@/services/iptv";
 import { getWatchHistory } from "@/services/storage";
 import { Sidebar } from "@/components/Sidebar";
@@ -139,24 +140,30 @@ export default function Home() {
           popularSeriesCat ? fetchSeries(popularSeriesCat.category_id).catch(() => []) : [],
         ]);
 
-      // Apenas 12 itens por linha na Home para máxima performance na TV
+      const sortedAction = sortMediaByRecent(actionList);
+      const sortedScifi = sortMediaByRecent(scifiList);
+      const sortedDisney = sortMediaByRecent(disneyList);
+      const sortedHbo = sortMediaByRecent(hboList);
+      const sortedPopSeries = sortMediaByRecent(popSeriesList);
+
+      // Apenas 12 itens por linha na Home para máxima performance na TV (2026/2025 no topo)
       setFeaturedLive(liveStreams.slice(0, 12));
       setAllLiveChannels(liveStreams);
-      setActionMovies(actionList.slice(0, 12));
-      setScifiMovies(scifiList.slice(0, 12));
-      setDisneyMovies(disneyList.slice(0, 12));
-      setHboSeries(hboList.slice(0, 12));
-      setPopularSeries(popSeriesList.slice(0, 12));
+      setActionMovies(sortedAction.slice(0, 12));
+      setScifiMovies(sortedScifi.slice(0, 12));
+      setDisneyMovies(sortedDisney.slice(0, 12));
+      setHboSeries(sortedHbo.slice(0, 12));
+      setPopularSeries(sortedPopSeries.slice(0, 12));
 
       const combinedForHero: (VodStream | SeriesItem)[] = [
-        ...actionList.slice(0, 4),
-        ...hboList.slice(0, 3),
-        ...scifiList.slice(0, 3),
+        ...sortedAction.slice(0, 4),
+        ...sortedHbo.slice(0, 3),
+        ...sortedScifi.slice(0, 3),
       ];
       setHeroItems(combinedForHero);
 
-      setAllMoviesList(actionList);
-      setAllSeriesList(hboList);
+      setAllMoviesList(sortedAction);
+      setAllSeriesList(sortedHbo);
     } catch (err) {
       console.error("Error loading home data:", err);
     } finally {
@@ -187,7 +194,7 @@ export default function Home() {
     setIsLoadingMovies(true);
     try {
       const data = await fetchVodStreams(catId === "all" ? undefined : catId);
-      setAllMoviesList(data);
+      setAllMoviesList(sortMediaByRecent(data));
     } catch (e) {
       console.error(e);
     } finally {
@@ -200,7 +207,7 @@ export default function Home() {
     setIsLoadingSeries(true);
     try {
       const data = await fetchSeries(catId === "all" ? undefined : catId);
-      setAllSeriesList(data);
+      setAllSeriesList(sortMediaByRecent(data));
     } catch (e) {
       console.error(e);
     } finally {

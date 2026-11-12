@@ -100,6 +100,20 @@ export const MediaDetailModal: React.FC<MediaDetailModalProps> = ({
     };
   }, [onClose]);
 
+  // Foco automático inteligente na TV quando o modal abre
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const primary =
+        document.querySelector<HTMLElement>('[data-tv-modal="true"] [data-tv-modal-primary="true"]') ||
+        document.querySelector<HTMLElement>('[data-tv-modal="true"] button:not([data-tv-close="true"])') ||
+        document.querySelector<HTMLElement>('[data-tv-modal="true"] button');
+      if (primary) {
+        primary.focus();
+      }
+    }, 100);
+    return () => clearTimeout(timer);
+  }, [item, isSeries, activeSeason]);
+
   if (!item) return null;
 
   const rawTitle = item.title || item.name || "Detalhes";
@@ -195,14 +209,19 @@ export const MediaDetailModal: React.FC<MediaDetailModalProps> = ({
   const seasonList = seriesData?.episodes ? Object.keys(seriesData.episodes) : [];
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-5 select-none animate-fade-in">
+    <div
+      data-tv-modal="true"
+      className="fixed inset-0 z-50 overflow-y-auto bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-5 select-none animate-fade-in"
+    >
       <div className="fixed inset-0 -z-10" onClick={onClose} />
 
       <div className="relative w-full max-w-4xl bg-[#0d1017] border border-white/10 rounded-2xl overflow-hidden shadow-2xl my-auto">
         {/* Close Button */}
         <button
+          data-tv-close="true"
           onClick={onClose}
-          className="absolute top-4 right-4 z-30 p-2.5 rounded-full bg-black/70 hover:bg-emerald-500 hover:text-black text-white backdrop-blur-md border border-white/15 transition-all"
+          className="absolute top-4 right-4 z-30 p-2.5 rounded-full bg-black/70 hover:bg-emerald-500 hover:text-black text-white backdrop-blur-md border border-white/15 transition-all focus:outline-none focus:ring-2 focus:ring-emerald-400"
+          title="Fechar"
         >
           <X className="w-5 h-5" />
         </button>
@@ -241,16 +260,6 @@ export const MediaDetailModal: React.FC<MediaDetailModalProps> = ({
                 {title}
               </h2>
             </div>
-
-            {!isSeries && (
-              <button
-                onClick={handlePlayMovie}
-                className="hidden sm:flex items-center gap-2 px-6 py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold shadow-xl shadow-emerald-500/30 transition-all transform hover:scale-105 active:scale-95"
-              >
-                <Play className="w-5 h-5 fill-black text-black" />
-                <span>Assistir Filme</span>
-              </button>
-            )}
           </div>
         </div>
 
@@ -260,8 +269,9 @@ export const MediaDetailModal: React.FC<MediaDetailModalProps> = ({
           <div className="flex flex-wrap items-center gap-3">
             {!isSeries && (
               <button
+                data-tv-modal-primary="true"
                 onClick={handlePlayMovie}
-                className="sm:hidden flex-1 flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold shadow-lg shadow-emerald-500/30"
+                className="flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold shadow-xl shadow-emerald-500/30 transition-all focus:outline-none focus:ring-4 focus:ring-emerald-300 focus:bg-emerald-400 cursor-pointer"
               >
                 <Play className="w-5 h-5 fill-black text-black" />
                 <span>Assistir Filme</span>
@@ -270,7 +280,7 @@ export const MediaDetailModal: React.FC<MediaDetailModalProps> = ({
 
             <button
               onClick={toggleFav}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border transition-all ${
+              className={`flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold border transition-all focus:outline-none focus:ring-2 focus:ring-emerald-400 ${
                 favorite
                   ? "bg-emerald-500/20 border-emerald-500/40 text-emerald-400"
                   : "bg-surface-light hover:bg-white/10 border-white/10 text-gray-200"
@@ -333,7 +343,7 @@ export const MediaDetailModal: React.FC<MediaDetailModalProps> = ({
                       <button
                         key={season}
                         onClick={() => setActiveSeason(season)}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
+                        className={`flex-shrink-0 px-3.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all focus:outline-none focus:ring-2 focus:ring-emerald-400 ${
                           activeSeason === season
                             ? "bg-emerald-500 text-black font-bold shadow-md shadow-emerald-500/30"
                             : "bg-surface-light text-gray-300 hover:bg-white/10"
@@ -362,8 +372,18 @@ export const MediaDetailModal: React.FC<MediaDetailModalProps> = ({
                     return (
                       <div
                         key={ep.id || idx}
+                        tabIndex={0}
+                        role="button"
+                        data-tv-modal-item="true"
+                        data-tv-modal-primary={idx === 0 ? "true" : undefined}
                         onClick={() => handlePlayEpisode(ep, episodes, idx)}
-                        className="group flex gap-3 p-2.5 rounded-xl bg-surface-light/60 hover:bg-surface-light border border-white/5 hover:border-emerald-500/40 cursor-pointer transition-all"
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.keyCode === 13) {
+                            e.preventDefault();
+                            handlePlayEpisode(ep, episodes, idx);
+                          }
+                        }}
+                        className="group flex gap-3 p-2.5 rounded-xl bg-surface-light/60 hover:bg-surface-light focus:bg-surface-light border border-white/5 hover:border-emerald-500/40 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400 cursor-pointer transition-all"
                       >
                         {/* Thumbnail */}
                         <div className="relative w-24 sm:w-28 h-16 rounded-lg overflow-hidden bg-black/50 flex-shrink-0">

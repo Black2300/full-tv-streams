@@ -141,3 +141,75 @@ export function cleanCategoryName(name: string): string {
   if (!name) return "";
   return name.replace(/^(Filmes|Series|Canais)\s*\|\s*/i, "").trim();
 }
+
+/**
+ * Extrai de forma inteligente o ano de lançamento de um filme ou série
+ * Prioriza item.year, item.release_date, item.releaseDate ou ano embutido no título/nome
+ * Ex: "Deadpool & Wolverine (2024)", "Avatar 3 2025", "Superman (2025)"
+ */
+export function extractReleaseYear(item: {
+  year?: string | number;
+  release_date?: string;
+  releaseDate?: string;
+  title?: string;
+  name?: string;
+}): number {
+  if (!item) return 0;
+
+  if (item.year) {
+    const y = parseInt(String(item.year).trim(), 10);
+    if (!isNaN(y) && y >= 1920 && y <= 2035) return y;
+  }
+  if (item.release_date) {
+    const match = String(item.release_date).match(/\b(19\d\d|20\d\d)\b/);
+    if (match) {
+      const y = parseInt(match[1], 10);
+      if (y >= 1920 && y <= 2035) return y;
+    }
+  }
+  if (item.releaseDate) {
+    const match = String(item.releaseDate).match(/\b(19\d\d|20\d\d)\b/);
+    if (match) {
+      const y = parseInt(match[1], 10);
+      if (y >= 1920 && y <= 2035) return y;
+    }
+  }
+
+  const title = item.title || item.name || "";
+  // Detecta ano entre parênteses, colchetes ou separado por hífen/espaço
+  const match = title.match(/[\(\[\-\s](202\d|201\d|200\d|19\d\d)[\)\]\s]?/);
+  if (match) {
+    const y = parseInt(match[1], 10);
+    if (y >= 1920 && y <= 2035) return y;
+  }
+
+  // Fallback geral para qualquer 4 dígitos coerentes
+  const fallback = title.match(/\b(19\d\d|20\d\d)\b/);
+  if (fallback) {
+    const y = parseInt(fallback[1], 10);
+    if (y >= 1920 && y <= 2035) return y;
+  }
+
+  return 0;
+}
+
+/**
+ * Ordena filmes ou séries colocando os lançamentos mais recentes (2026, 2025, 2024...) sempre no topo
+ */
+export function sortMediaByRecent<T extends { stream_id?: number | string; series_id?: number | string }>(
+  items: T[]
+): T[] {
+  return [...items].sort((a, b) => {
+    const yearA = extractReleaseYear(a as any);
+    const yearB = extractReleaseYear(b as any);
+
+    if (yearB !== yearA) {
+      return yearB - yearA; // Maior ano sempre primeiro (2026 > 2025 > ...)
+    }
+
+    const idA = Number(a.stream_id || a.series_id || 0);
+    const idB = Number(b.stream_id || b.series_id || 0);
+    return idB - idA;
+  });
+}
+

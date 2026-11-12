@@ -134,7 +134,7 @@ export const LiveTvView: React.FC<LiveTvViewProps> = ({
           <div className="flex lg:flex-col gap-1.5 overflow-x-auto lg:overflow-y-auto max-h-[580px] no-scrollbar py-1">
             <button
               onClick={() => handleCategoryClick("all")}
-              className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold whitespace-nowrap transition-all ${
+              className={`flex-shrink-0 flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold whitespace-nowrap transition-all focus:outline-none focus:ring-2 focus:ring-emerald-400 ${
                 selectedCat === "all"
                   ? "bg-emerald-500 text-black font-extrabold shadow-lg shadow-emerald-500/25"
                   : "bg-surface hover:bg-surface-light text-gray-300 hover:text-white border border-white/5"
@@ -155,7 +155,7 @@ export const LiveTvView: React.FC<LiveTvViewProps> = ({
                 <button
                   key={cat.category_id}
                   onClick={() => handleCategoryClick(cat.category_id)}
-                  className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold whitespace-nowrap transition-all ${
+                  className={`flex-shrink-0 flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold whitespace-nowrap transition-all focus:outline-none focus:ring-2 focus:ring-emerald-400 ${
                     isSelected
                       ? "bg-emerald-500 text-black font-extrabold shadow-lg shadow-emerald-500/25"
                       : "bg-surface hover:bg-surface-light text-gray-300 hover:text-white border border-white/5"

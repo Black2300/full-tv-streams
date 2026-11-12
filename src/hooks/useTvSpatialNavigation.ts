@@ -27,6 +27,19 @@ export function useTvSpatialNavigation() {
 
     // 2. Foco inicial automático (evita cair na barra de busca)
     const setInitialTvFocus = () => {
+      // Prioridade 0: Modal ativo (evita navegar por baixo de modais abertos)
+      const activeModal = document.querySelector<HTMLElement>('[data-tv-modal="true"]');
+      if (activeModal) {
+        const modalTarget =
+          activeModal.querySelector<HTMLElement>('[data-tv-modal-primary="true"]') ||
+          activeModal.querySelector<HTMLElement>('button:not([data-tv-close="true"])') ||
+          activeModal.querySelector<HTMLElement>('button');
+        if (modalTarget) {
+          modalTarget.focus();
+          return;
+        }
+      }
+
       // Prioridade 1: Botão "Assistir Agora" do HeroBanner
       const heroPlayBtn = document.querySelector<HTMLElement>('button[data-tv-hero="true"]');
       if (heroPlayBtn) {
@@ -50,6 +63,7 @@ export function useTvSpatialNavigation() {
 
     const handleKeyDown = (e: KeyboardEvent) => {
       const active = document.activeElement as HTMLElement | null;
+      const activeModal = document.querySelector<HTMLElement>('[data-tv-modal="true"]');
 
       // Códigos de tecla TV
       const isUp = e.key === "ArrowUp" || e.keyCode === 38;
@@ -65,13 +79,25 @@ export function useTvSpatialNavigation() {
 
       // Se o usuário apertar Voltar
       if (isBack) {
+        // Se houver modal ativo, fecha o modal primeiro
+        if (activeModal) {
+          e.preventDefault();
+          e.stopPropagation();
+          const closeBtn = activeModal.querySelector<HTMLElement>('[data-tv-close="true"], button[title="Fechar"]');
+          if (closeBtn) {
+            closeBtn.click();
+            return;
+          }
+        }
+
         // Se estiver em um input, sai do input
         if (active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA")) {
           active.blur();
           setInitialTvFocus();
           return;
         }
-        // Se houver botão de fechar modal ou player
+
+        // Se houver botão de fechar geral
         const closeBtn = document.querySelector<HTMLElement>('button[data-tv-close="true"], button[title="Fechar"]');
         if (closeBtn) {
           closeBtn.click();
@@ -108,18 +134,39 @@ export function useTvSpatialNavigation() {
 
       // Seletor de todos os elementos interativos
       const selector = 'button:not([disabled]), [tabindex="0"], a[href], input:not([disabled])';
-      const allFocusables = Array.from(document.querySelectorAll<HTMLElement>(selector)).filter((el) => {
+      
+      // ISOLA 100% a navegação se houver modal aberto: NUNCA deixa vazar para os filmes de trás!
+      const container: HTMLElement | Document = activeModal || document;
+
+      // Se há um modal e o foco atual ainda está fora dele (ex: no card que abriu o modal), puxa o foco para dentro do modal
+      if (activeModal && (!active || !activeModal.contains(active))) {
+        e.preventDefault();
+        const primaryTarget =
+          activeModal.querySelector<HTMLElement>('[data-tv-modal-primary="true"]') ||
+          activeModal.querySelector<HTMLElement>('button:not([data-tv-close="true"])') ||
+          activeModal.querySelector<HTMLElement>('button');
+        if (primaryTarget) {
+          primaryTarget.focus();
+        }
+        return;
+      }
+
+      const allFocusables = Array.from(container.querySelectorAll<HTMLElement>(selector)).filter((el) => {
         const rect = el.getBoundingClientRect();
         return rect.width > 0 && rect.height > 0 && window.getComputedStyle(el).visibility !== "hidden";
       });
 
       if (allFocusables.length === 0) return;
 
-      // Se nenhum elemento tiver foco, foca no conteúdo
+      // Se nenhum elemento tiver foco, foca no início do container
       if (!active || !allFocusables.includes(active)) {
         if (isEnter) return;
         e.preventDefault();
-        setInitialTvFocus();
+        if (activeModal) {
+          allFocusables[0]?.focus();
+        } else {
+          setInitialTvFocus();
+        }
         return;
       }
 
@@ -131,13 +178,13 @@ export function useTvSpatialNavigation() {
       e.preventDefault();
 
       const current = active;
-      const inSidebar = current.closest("aside") !== null;
-      const inMain = current.closest("main") !== null;
+      const inSidebar = !activeModal && current.closest("aside") !== null;
+      const inMain = !activeModal && current.closest("main") !== null;
       const currentRect = current.getBoundingClientRect();
       const currentCenterX = currentRect.left + currentRect.width / 2;
       const currentCenterY = currentRect.top + currentRect.height / 2;
 
-      // Regra 1: Se estiver na Sidebar e apertar Direita, pula direto para o conteúdo principal
+      // Regra 1: Se estiver na Sidebar e apertar Direita, pula direto para o conteúdo principal (fora de modal)
       if (inSidebar && isRight) {
         const mainTarget = document.querySelector<HTMLElement>('main [data-tv-hero="true"], main [tabindex="0"]');
         if (mainTarget) {
@@ -147,7 +194,7 @@ export function useTvSpatialNavigation() {
         }
       }
 
-      // Regra 2: Se estiver no conteúdo principal, bem na esquerda, e apertar Esquerda, pula para a Sidebar
+      // Regra 2: Se estiver no conteúdo principal, bem na esquerda, e apertar Esquerda, pula para a Sidebar (fora de modal)
       if (inMain && isLeft && currentRect.left < 280) {
         const activeNavBtn = document.querySelector<HTMLElement>('aside nav button.bg-emerald-500') ||
                              document.querySelector<HTMLElement>('aside nav button');
@@ -199,7 +246,11 @@ export function useTvSpatialNavigation() {
 
       if (bestTarget) {
         bestTarget.focus();
-        bestTarget.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+        if (activeModal) {
+          bestTarget.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "nearest" });
+        } else {
+          bestTarget.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+        }
       }
     };
 
