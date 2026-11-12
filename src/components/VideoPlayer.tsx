@@ -58,14 +58,25 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [showChannelsOverlay, setShowChannelsOverlay] = useState(false);
   const [channelSearch, setChannelSearch] = useState("");
-  // Conexão direta por padrão: muito mais rápida para filmes/séries e evita timeout no Vercel
-  const [useProxy, setUseProxy] = useState<boolean>(false);
+  // Passa pelo stream-proxy que resolve o redirecionamento com User-Agent VLC e entrega o CDN direto
+  const [useProxy, setUseProxy] = useState<boolean>(true);
 
   const hideControlsTimeout = useRef<NodeJS.Timeout | null>(null);
   const loadTimerRef = useRef<NodeJS.Timeout | null>(null);
   const retryCount = useRef(0);
   const isPlayingRef = useRef(false);
   isPlayingRef.current = isPlaying;
+
+  // Foco automático no botão "Tentar Novamente" em caso de erro
+  useEffect(() => {
+    if (errorMsg) {
+      const timer = setTimeout(() => {
+        const btn = document.querySelector<HTMLElement>('[data-tv-error-primary="true"]');
+        if (btn) btn.focus();
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [errorMsg]);
 
   // Temporizador para esconder os controles automaticamente na TV
   const resetControlsTimeout = useCallback(() => {
@@ -407,6 +418,23 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
 
       if (document.activeElement?.tagName === "INPUT") return;
 
+      // Se houver tela de erro aberta, liberar as teclas para navegação e seleção dos botões de erro
+      if (errorMsg) {
+        if (
+          e.key === "Escape" ||
+          e.key === "Back" ||
+          e.key === "GoBack" ||
+          e.key === "Return" ||
+          e.keyCode === 10009 ||
+          e.keyCode === 27
+        ) {
+          e.preventDefault();
+          e.stopPropagation();
+          onClose();
+        }
+        return;
+      }
+
       // Enter or Space: Play/Pause
       if (e.code === "Space" || e.key === "Enter") {
         e.preventDefault();
@@ -464,7 +492,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("tizenhwkey", handleTizenHardwareKey);
     };
-  }, [volume, isFullscreen, isPlaying, showChannelsOverlay, onClose, resetControlsTimeout]);
+  }, [volume, isFullscreen, isPlaying, showChannelsOverlay, onClose, resetControlsTimeout, errorMsg]);
 
   const togglePlay = () => {
     if (!videoRef.current) return;
@@ -616,14 +644,17 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
           <div className="flex flex-wrap items-center justify-center gap-3">
             <button
               onClick={retryPlayback}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-bold text-sm transition-all shadow-lg shadow-emerald-500/30"
+              data-tv-error-primary="true"
+              tabIndex={0}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-bold text-sm transition-all shadow-lg shadow-emerald-500/30 focus:outline-none focus:ring-4 focus:ring-white focus:scale-105"
             >
               <RefreshCw className="w-4 h-4" />
               <span>Tentar Novamente</span>
             </button>
             <button
               onClick={toggleProxyMode}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-emerald-400 font-semibold text-sm transition-all border border-emerald-500/40"
+              tabIndex={0}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-emerald-400 font-semibold text-sm transition-all border border-emerald-500/40 focus:outline-none focus:ring-4 focus:ring-emerald-400 focus:scale-105"
             >
               <Zap className="w-4 h-4" />
               <span>Alternar Modo ({useProxy ? "Direto" : "Proxy"})</span>
@@ -632,14 +663,16 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
               href={rawUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-semibold text-sm transition-all border border-white/10"
+              tabIndex={0}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-semibold text-sm transition-all border border-white/10 focus:outline-none focus:ring-4 focus:ring-emerald-400 focus:scale-105"
             >
               <ExternalLink className="w-4 h-4" />
               <span>Abrir Link Direto</span>
             </a>
             <button
               onClick={onClose}
-              className="px-5 py-2.5 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-200 font-semibold text-sm transition-all"
+              tabIndex={0}
+              className="px-5 py-2.5 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-200 font-semibold text-sm transition-all focus:outline-none focus:ring-4 focus:ring-emerald-400 focus:scale-105"
             >
               Fechar Player
             </button>

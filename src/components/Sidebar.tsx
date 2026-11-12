@@ -92,21 +92,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <div className="lg:hidden fixed top-0 inset-x-0 z-40 bg-[#07080c]/95 backdrop-blur-md border-b border-white/5 px-4 py-3.5 flex items-center justify-between">
         <button
           onClick={() => handleNavClick("home")}
-          className="flex items-center gap-2.5 text-left"
+          className="flex items-center gap-2 text-left"
         >
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-700 flex items-center justify-center text-white shadow-lg shadow-emerald-500/25">
-            <Tv className="w-5 h-5 text-white" />
-          </div>
-          <div>
-            <div className="flex items-center gap-1.5 leading-none">
-              <span className="font-extrabold text-lg text-white tracking-wider">
-                FULL<span className="text-emerald-400">TV</span>
-              </span>
-              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                HD
-              </span>
-            </div>
-          </div>
+          <img
+            src="/logo.png"
+            alt="FULL TV STREAMS"
+            className="h-9 w-auto max-h-9 object-contain drop-shadow"
+          />
         </button>
 
         <div className="flex items-center gap-2">
@@ -152,24 +144,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <div className="flex items-center justify-between">
             <button
               onClick={() => handleNavClick("home")}
-              className="flex items-center gap-3 text-left group"
+              className="flex items-center text-left group py-1"
             >
-              <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-700 flex items-center justify-center text-white shadow-xl shadow-emerald-500/30 group-hover:scale-105 transition-transform">
-                <Tv className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <div className="flex items-center gap-1.5 leading-none">
-                  <span className="font-black text-xl text-white tracking-wider">
-                    FULL<span className="text-emerald-400">TV</span>
-                  </span>
-                  <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                    HD
-                  </span>
-                </div>
-                <span className="text-[10px] text-gray-400 font-medium tracking-widest block uppercase mt-1">
-                  Ao Vivo & VOD
-                </span>
-              </div>
+              <img
+                src="/logo.png"
+                alt="FULL TV STREAMS"
+                className="h-12 w-auto max-w-[210px] object-contain drop-shadow-lg group-hover:scale-105 transition-transform"
+              />
             </button>
 
             <button
