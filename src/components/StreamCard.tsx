@@ -146,8 +146,8 @@ export const StreamCard: React.FC<StreamCardProps> = ({
           </div>
         )}
 
-        {/* Gradient overlay on hover */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-3.5 z-10" />
+        {/* Gradient overlay on hover & TV remote focus */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/50 to-transparent opacity-0 group-hover:opacity-100 group-focus:opacity-100 group-focus-within:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-3.5 z-10" />
 
         {/* Live Badge for TV Channels */}
         {type === "live" && (
@@ -165,8 +165,8 @@ export const StreamCard: React.FC<StreamCardProps> = ({
           </div>
         )}
 
-        {/* Hover Action Overlay */}
-        <div className="absolute inset-0 z-20 flex flex-col justify-between p-3.5 opacity-0 group-hover:opacity-100 transition-all duration-300">
+        {/* Hover / Focus Action Overlay */}
+        <div className="absolute inset-0 z-20 flex flex-col justify-between p-3.5 opacity-0 group-hover:opacity-100 group-focus:opacity-100 group-focus-within:opacity-100 transition-all duration-300">
           {/* Top action buttons */}
           <div className="flex justify-end">
             <button
@@ -186,23 +186,23 @@ export const StreamCard: React.FC<StreamCardProps> = ({
           <div className="flex justify-center items-center">
             <button
               onClick={handlePlayClick}
-              className="p-3.5 rounded-full bg-emerald-500 hover:bg-emerald-400 text-black shadow-xl shadow-emerald-500/40 transform group-hover:scale-110 transition-transform duration-200"
+              className="p-4 rounded-full bg-emerald-500 hover:bg-emerald-400 text-black shadow-2xl shadow-emerald-500/50 transform group-hover:scale-110 group-focus:scale-110 transition-transform duration-200"
             >
-              <Play className="w-5 h-5 fill-black text-black" />
+              <Play className="w-6 h-6 fill-black text-black ml-0.5" />
             </button>
           </div>
 
           {/* Bottom Title & Info */}
           <div>
-            <h4 className="text-white text-xs sm:text-sm font-semibold line-clamp-1 leading-snug drop-shadow-md">
+            <h4 className="text-white text-sm sm:text-base font-bold line-clamp-1 leading-snug drop-shadow-md">
               {title}
             </h4>
-            <div className="flex items-center gap-2 text-[10px] sm:text-xs text-gray-300 mt-1">
+            <div className="flex items-center gap-2 text-xs text-gray-300 mt-1">
               {year && <span>{year}</span>}
               {categoryName && (
                 <>
-                  <span className="w-1 h-1 rounded-full bg-emerald-500" />
-                  <span className="truncate max-w-[120px]">{categoryName}</span>
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                  <span className="truncate max-w-[140px]">{categoryName}</span>
                 </>
               )}
             </div>
@@ -211,11 +211,11 @@ export const StreamCard: React.FC<StreamCardProps> = ({
       </div>
 
       {/* Static Footer */}
-      <div className="p-3 bg-surface flex flex-col justify-between flex-1">
-        <h3 className="text-xs sm:text-sm font-medium text-gray-200 line-clamp-1 group-hover:text-emerald-400 transition-colors">
+      <div className="p-3.5 bg-surface flex flex-col justify-between flex-1">
+        <h3 className="text-sm font-semibold text-gray-200 line-clamp-1 group-hover:text-emerald-400 group-focus:text-emerald-400 transition-colors">
           {title}
         </h3>
-        <div className="flex items-center justify-between text-[11px] text-gray-400 mt-1.5">
+        <div className="flex items-center justify-between text-xs text-gray-400 mt-1.5">
           <span className="truncate">
             {categoryName ||
               (type === "live" ? "TV ao Vivo" : type === "movie" ? "Filme" : "Série")}

@@ -234,7 +234,15 @@ export const LiveTvView: React.FC<LiveTvViewProps> = ({
                     <div
                       key={channel.stream_id}
                       onClick={handlePlay}
-                      className="group relative flex items-center gap-3.5 p-3 rounded-2xl bg-surface hover:bg-surface-light border border-white/5 hover:border-emerald-500/40 cursor-pointer transition-all duration-200 shadow-sm hover:shadow-lg hover:shadow-emerald-950/20"
+                      tabIndex={0}
+                      role="button"
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.keyCode === 13) {
+                          e.preventDefault();
+                          handlePlay();
+                        }
+                      }}
+                      className="group relative flex items-center gap-3.5 p-3 rounded-2xl bg-surface hover:bg-surface-light border border-white/5 hover:border-emerald-500/40 focus:border-emerald-400 focus:scale-[1.04] focus:ring-4 focus:ring-emerald-400 focus:outline-none cursor-pointer transition-all duration-200 shadow-sm hover:shadow-lg hover:shadow-emerald-950/20"
                     >
                       {/* Channel Logo */}
                       <div className="relative w-14 h-14 rounded-xl bg-black/60 p-2 flex items-center justify-center overflow-hidden flex-shrink-0 border border-white/10 group-hover:border-emerald-500/40">

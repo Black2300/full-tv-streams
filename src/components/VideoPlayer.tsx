@@ -411,18 +411,42 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
       } else if (e.key === "m" || e.key === "M") {
         e.preventDefault();
         toggleMute();
-      } else if (e.key === "Escape" || e.key === "Back" || e.key === "GoBack") {
-        if (isFullscreen) {
-          document.exitFullscreen?.();
-        } else {
-          onClose();
+      } else if (
+        e.key === "Escape" ||
+        e.key === "Back" ||
+        e.key === "GoBack" ||
+        e.key === "Return" ||
+        e.keyCode === 10009 ||
+        e.keyCode === 27
+      ) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (showChannelsOverlay) {
+          setShowChannelsOverlay(false);
+          return;
         }
+        onClose();
+      }
+    };
+
+    const handleTizenHardwareKey = (e: any) => {
+      if (e.keyName === "back") {
+        e.preventDefault();
+        if (showChannelsOverlay) {
+          setShowChannelsOverlay(false);
+          return;
+        }
+        onClose();
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [volume, isFullscreen, isPlaying]);
+    window.addEventListener("tizenhwkey", handleTizenHardwareKey);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("tizenhwkey", handleTizenHardwareKey);
+    };
+  }, [volume, isFullscreen, isPlaying, showChannelsOverlay, onClose]);
 
   const togglePlay = () => {
     if (!videoRef.current) return;

@@ -70,6 +70,36 @@ export const MediaDetailModal: React.FC<MediaDetailModalProps> = ({
     }
   }, [item, id, isSeries, type]);
 
+  // Suporte total ao botão Voltar (Return / 10009 / Esc) do controle remoto da TV
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (
+        e.key === "Escape" ||
+        e.key === "Return" ||
+        e.keyCode === 10009 ||
+        e.key === "Back" ||
+        e.key === "GoBack" ||
+        e.keyCode === 27
+      ) {
+        e.preventDefault();
+        e.stopPropagation();
+        onClose();
+      }
+    };
+    const handleTizen = (e: any) => {
+      if (e.keyName === "back") {
+        e.preventDefault();
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("tizenhwkey", handleTizen);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("tizenhwkey", handleTizen);
+    };
+  }, [onClose]);
+
   if (!item) return null;
 
   const rawTitle = item.title || item.name || "Detalhes";

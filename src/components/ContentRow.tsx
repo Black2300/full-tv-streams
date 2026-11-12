@@ -46,23 +46,23 @@ export const ContentRow: React.FC<ContentRowProps> = ({
   if (!items || items.length === 0) return null;
 
   return (
-    <div className="relative group/row my-6 sm:my-8 px-4 sm:px-8 lg:px-12 max-w-[1600px] mx-auto">
+    <div className="relative group/row my-7 sm:my-10 px-4 sm:px-8 lg:px-12 max-w-full">
       {/* Row Header */}
       <div className="flex items-end justify-between mb-4">
         <div className="flex items-center gap-3">
           {icon && <div className="text-emerald-400">{icon}</div>}
           <div>
             <div className="flex items-center gap-2.5">
-              <h2 className="text-lg sm:text-xl md:text-2xl font-bold tracking-tight text-white">
+              <h2 className="text-xl sm:text-2xl md:text-3xl font-extrabold tracking-tight text-white drop-shadow-sm">
                 {title}
               </h2>
               {badge && (
-                <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
                   {badge}
                 </span>
               )}
             </div>
-            {subtitle && <p className="text-xs text-gray-400 mt-1">{subtitle}</p>}
+            {subtitle && <p className="text-xs sm:text-sm text-gray-400 mt-1">{subtitle}</p>}
           </div>
         </div>
 
@@ -87,10 +87,10 @@ export const ContentRow: React.FC<ContentRowProps> = ({
           <ChevronLeft className="w-5 h-5" />
         </button>
 
-        {/* Carousel Scroll Track */}
+        {/* Carousel Scroll Track com padding generoso para o foco de TV */}
         <div
           ref={rowRef}
-          className="flex gap-3.5 sm:gap-4.5 overflow-x-auto no-scrollbar scroll-smooth py-3 px-1"
+          className="flex gap-4 sm:gap-5 overflow-x-auto no-scrollbar scroll-smooth py-5 px-3"
         >
           {items.map((item, idx) => {
             const key = `${type}_${(item as any).stream_id || (item as any).series_id || idx}`;
@@ -99,8 +99,8 @@ export const ContentRow: React.FC<ContentRowProps> = ({
                 key={key}
                 className={`flex-shrink-0 ${
                   type === "live"
-                    ? "w-[230px] sm:w-[270px] md:w-[290px]"
-                    : "w-[150px] sm:w-[180px] md:w-[205px]"
+                    ? "w-[240px] sm:w-[280px] lg:w-[320px]"
+                    : "w-[165px] sm:w-[195px] lg:w-[225px]"
                 }`}
               >
                 <StreamCard
