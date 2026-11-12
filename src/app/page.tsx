@@ -39,7 +39,7 @@ import { Sidebar } from "@/components/Sidebar";
 import { HeroBanner } from "@/components/HeroBanner";
 import { ContentRow } from "@/components/ContentRow";
 import { VideoPlayer } from "@/components/VideoPlayer";
-import { MediaDetailModal } from "@/components/MediaDetailModal";
+import { MediaDetailView } from "@/components/MediaDetailView";
 import { LiveTvView } from "@/components/LiveTvView";
 import { MoviesView } from "@/components/MoviesView";
 import { SeriesView } from "@/components/SeriesView";
@@ -217,6 +217,7 @@ export default function Home() {
 
   const handleTabChange = (tab: MainTab) => {
     setActiveTab(tab);
+    setSelectedMedia(null);
     window.scrollTo({ top: 0, behavior: "smooth" });
 
     if (tab === "live" && allLiveChannels.length <= 1) {
@@ -291,8 +292,18 @@ export default function Home() {
       {/* Main Content Body */}
       <div className="flex-1 lg:pl-72 flex flex-col min-h-screen pt-14 lg:pt-0">
         <main className="flex-1">
-          {/* ================= HOME TAB ================= */}
-          {activeTab === "home" && (
+          {/* Se um filme ou série for selecionado, abre a página de detalhes completa ao lado da sidebar (sem modal) */}
+          {selectedMedia ? (
+            <MediaDetailView
+              item={selectedMedia.item}
+              type={selectedMedia.type}
+              onBack={() => setSelectedMedia(null)}
+              onPlay={handlePlayMedia}
+            />
+          ) : (
+            <>
+              {/* ================= HOME TAB ================= */}
+              {activeTab === "home" && (
             <div className="animate-fade-in pb-12">
               {/* Cinematic Hero Showcase */}
               {heroItems.length > 0 && (
@@ -499,6 +510,8 @@ export default function Home() {
               onSelectMedia={handleOpenDetail}
             />
           )}
+            </>
+          )}
         </main>
 
         {/* Footer */}
@@ -538,7 +551,7 @@ export default function Home() {
         </footer>
       </div>
 
-      {/* Video Player Modal */}
+      {/* Video Player Fullscreen */}
       {activePlayable && (
         <VideoPlayer
           item={activePlayable}
@@ -554,16 +567,6 @@ export default function Home() {
               streamUrl: getLiveStreamUrl(ch.stream_id),
             });
           }}
-        />
-      )}
-
-      {/* Media Detail Modal */}
-      {selectedMedia && (
-        <MediaDetailModal
-          item={selectedMedia.item}
-          type={selectedMedia.type}
-          onClose={() => setSelectedMedia(null)}
-          onPlay={handlePlayMedia}
         />
       )}
 

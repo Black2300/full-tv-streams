@@ -58,21 +58,36 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [showChannelsOverlay, setShowChannelsOverlay] = useState(false);
   const [channelSearch, setChannelSearch] = useState("");
-  const [useProxy, setUseProxy] = useState<boolean>(true);
+  // Conexão direta por padrão: muito mais rápida para filmes/séries e evita timeout no Vercel
+  const [useProxy, setUseProxy] = useState<boolean>(false);
 
   const hideControlsTimeout = useRef<NodeJS.Timeout | null>(null);
   const loadTimerRef = useRef<NodeJS.Timeout | null>(null);
   const retryCount = useRef(0);
+  const isPlayingRef = useRef(false);
+  isPlayingRef.current = isPlaying;
 
-  const handleUserActivity = useCallback(() => {
+  // Temporizador para esconder os controles automaticamente na TV
+  const resetControlsTimeout = useCallback(() => {
     setShowControls(true);
     if (hideControlsTimeout.current) clearTimeout(hideControlsTimeout.current);
     hideControlsTimeout.current = setTimeout(() => {
-      if (isPlaying) {
+      // Some com os controles quando o filme estiver rodando e a aba de canais não estiver aberta
+      if (isPlayingRef.current && !showChannelsOverlay) {
         setShowControls(false);
       }
     }, 3500);
-  }, [isPlaying]);
+  }, [showChannelsOverlay]);
+
+  // Quando inicia a reprodução, ativa o temporizador para sumir com os controles
+  useEffect(() => {
+    if (isPlaying) {
+      resetControlsTimeout();
+    } else {
+      setShowControls(true);
+      if (hideControlsTimeout.current) clearTimeout(hideControlsTimeout.current);
+    }
+  }, [isPlaying, resetControlsTimeout]);
 
   const rawUrl = item?.streamUrl || "";
   const isLive = item?.type === "live";
@@ -387,6 +402,9 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   // Keyboard and TV remote shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Qualquer toque no controle remoto mostra os controles e agenda para sumir após 3.5s
+      resetControlsTimeout();
+
       if (document.activeElement?.tagName === "INPUT") return;
 
       // Enter or Space: Play/Pause
@@ -446,7 +464,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("tizenhwkey", handleTizenHardwareKey);
     };
-  }, [volume, isFullscreen, isPlaying, showChannelsOverlay, onClose]);
+  }, [volume, isFullscreen, isPlaying, showChannelsOverlay, onClose, resetControlsTimeout]);
 
   const togglePlay = () => {
     if (!videoRef.current) return;
@@ -557,8 +575,9 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   return (
     <div
       ref={containerRef}
-      onMouseMove={handleUserActivity}
-      onClick={handleUserActivity}
+      onMouseMove={resetControlsTimeout}
+      onClick={resetControlsTimeout}
+      onTouchStart={resetControlsTimeout}
       className="fixed inset-0 z-50 bg-black flex items-center justify-center select-none overflow-hidden"
     >
       {/* Video Element */}
@@ -576,31 +595,13 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
         }`}
       />
 
-      {/* Loading Spinner */}
+      {/* Loading Spinner Profissional (sem popup incômodo de 'Iniciar reprodução') */}
       {isLoading && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm z-20">
-          <div className="w-16 h-16 rounded-full border-4 border-white/20 border-t-emerald-500 animate-spin mb-4" />
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm z-20 pointer-events-none select-none">
+          <div className="w-14 h-14 rounded-full border-4 border-white/20 border-t-emerald-500 animate-spin mb-4 shadow-lg shadow-emerald-500/20" />
           <p className="text-white text-sm font-semibold tracking-wide drop-shadow animate-pulse">
-            Carregando transmissão...
+            {isLive ? "Conectando ao canal..." : "Carregando filme..."}
           </p>
-          {loadDuration >= 3 && (
-            <div className="mt-5 flex flex-col sm:flex-row items-center gap-3 pointer-events-auto animate-fade-in">
-              <button
-                onClick={togglePlay}
-                className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-bold text-xs flex items-center gap-1.5 transition-all shadow-lg shadow-emerald-500/20 active:scale-95"
-              >
-                <Play className="w-4 h-4 fill-black" />
-                <span>Iniciar Reprodução</span>
-              </button>
-              <button
-                onClick={toggleProxyMode}
-                className="px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-emerald-400 font-semibold text-xs border border-emerald-500/40 transition-all active:scale-95"
-              >
-                <Zap className="w-3.5 h-3.5 inline mr-1" />
-                <span>Usar Modo {useProxy ? "Direto" : "Proxy"}</span>
-              </button>
-            </div>
-          )}
         </div>
       )}
 
@@ -646,8 +647,8 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
         </div>
       )}
 
-      {/* Unmute Prompt (posicionado no canto inferior esquerdo para nunca colidir com a aba de canais) */}
-      {isMuted && isPlaying && !errorMsg && (
+      {/* Unmute Prompt (some junto com os controles para não ficar na tela) */}
+      {isMuted && isPlaying && !errorMsg && showControls && (
         <button
           onClick={toggleMute}
           className="absolute bottom-24 left-6 z-30 flex items-center gap-2 px-4 py-2.5 rounded-full bg-emerald-500 text-black font-bold text-xs shadow-2xl animate-bounce hover:bg-emerald-400 transition-all border-2 border-black/30 active:scale-95"

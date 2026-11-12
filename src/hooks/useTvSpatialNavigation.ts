@@ -40,10 +40,10 @@ export function useTvSpatialNavigation() {
         }
       }
 
-      // Prioridade 1: Botão "Assistir Agora" do HeroBanner
-      const heroPlayBtn = document.querySelector<HTMLElement>('button[data-tv-hero="true"]');
-      if (heroPlayBtn) {
-        heroPlayBtn.focus();
+      // Prioridade 1: Botão de ação primária (HeroBanner ou Página do Filme)
+      const primaryBtn = document.querySelector<HTMLElement>('button[data-tv-primary="true"], button[data-tv-hero="true"]');
+      if (primaryBtn) {
+        primaryBtn.focus();
         return;
       }
       // Prioridade 2: Primeiro card de filme ou canal
@@ -186,7 +186,7 @@ export function useTvSpatialNavigation() {
 
       // Regra 1: Se estiver na Sidebar e apertar Direita, pula direto para o conteúdo principal (fora de modal)
       if (inSidebar && isRight) {
-        const mainTarget = document.querySelector<HTMLElement>('main [data-tv-hero="true"], main [tabindex="0"]');
+        const mainTarget = document.querySelector<HTMLElement>('main [data-tv-primary="true"], main [data-tv-hero="true"], main [tabindex="0"]');
         if (mainTarget) {
           mainTarget.focus();
           mainTarget.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });
