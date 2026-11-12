@@ -50,8 +50,8 @@ export const SamsungTvInstallerModal: React.FC<SamsungTvInstallerModalProps> = (
         {/* Header */}
         <div className="flex items-center justify-between pb-4 border-b border-white/10">
           <div className="flex items-center gap-3">
-            <div className="p-3 rounded-2xl bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-              <Tv className="w-6 h-6" />
+            <div className="w-12 h-12 rounded-2xl bg-black/60 p-1 flex items-center justify-center border border-emerald-500/30 shadow-lg shadow-emerald-500/20">
+              <img src="/logo-icon.png" alt="Full TV Streams" className="w-10 h-10 object-contain drop-shadow" />
             </div>
             <div>
               <div className="flex items-center gap-2">

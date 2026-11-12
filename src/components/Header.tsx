@@ -93,24 +93,13 @@ export const Header: React.FC<HeaderProps> = ({
         <div className="flex items-center gap-6 lg:gap-8">
           <button
             onClick={() => onTabChange("home")}
-            className="flex items-center gap-2.5 text-left group focus:outline-none"
+            className="flex items-center text-left group focus:outline-none py-1"
           >
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-700 flex items-center justify-center text-white shadow-lg shadow-emerald-500/25 group-hover:scale-105 transition-transform">
-              <Tv className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <div className="flex items-center gap-1.5 leading-none">
-                <span className="font-extrabold text-lg sm:text-xl text-white tracking-wider">
-                  FULL<span className="text-emerald-400">TV</span>
-                </span>
-                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 tracking-tight">
-                  HD
-                </span>
-              </div>
-              <span className="text-[10px] text-gray-400 font-medium tracking-widest block uppercase mt-0.5">
-                Ao Vivo & VOD
-              </span>
-            </div>
+            <img
+              src="/logo.png"
+              alt="FULL TV STREAMS"
+              className="h-10 w-auto max-w-[180px] object-contain drop-shadow group-hover:scale-105 transition-transform"
+            />
           </button>
 
           {/* Desktop Navigation Links */}

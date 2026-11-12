@@ -517,13 +517,14 @@ export default function Home() {
         {/* Footer */}
         <footer className="mt-auto border-t border-white/5 bg-[#07080c] py-8 px-4 sm:px-8 text-xs text-gray-500">
           <div className="max-w-[1600px] mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-2">
-              <div className="w-6 h-6 rounded-lg bg-emerald-500 flex items-center justify-center text-black font-extrabold text-xs">
-                FT
-              </div>
-              <span className="font-bold text-gray-300">Full TV Streams</span>
+            <div className="flex items-center gap-3">
+              <img
+                src="/logo.png"
+                alt="Full TV Streams"
+                className="h-7 w-auto object-contain opacity-85 hover:opacity-100 transition-opacity"
+              />
               <span className="text-gray-600">•</span>
-              <span>Dark Emerald Theme</span>
+              <span>4K Ultra HD</span>
             </div>
 
             <div className="flex items-center gap-4 text-gray-400">

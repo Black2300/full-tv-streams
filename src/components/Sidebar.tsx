@@ -149,7 +149,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <img
                 src="/logo.png"
                 alt="FULL TV STREAMS"
-                className="h-12 w-auto max-w-[210px] object-contain drop-shadow-lg group-hover:scale-105 transition-transform"
+                className="h-14 w-auto max-w-[220px] object-contain drop-shadow-xl group-hover:scale-105 transition-transform"
               />
             </button>
 
