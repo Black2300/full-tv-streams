@@ -166,6 +166,7 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({ items, onPlay, onSelect 
         {/* Action Buttons */}
         <div className="flex flex-wrap items-center gap-3 sm:gap-4">
           <button
+            data-tv-hero="true"
             onClick={handlePlayNow}
             className="flex items-center gap-2 px-6 py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold text-sm sm:text-base shadow-xl shadow-emerald-500/30 transition-all duration-200 transform hover:scale-105 active:scale-95 focus:outline-none focus:ring-4 focus:ring-emerald-400 focus:scale-105"
           >
