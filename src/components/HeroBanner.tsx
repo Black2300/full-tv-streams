@@ -167,7 +167,7 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({ items, onPlay, onSelect 
         <div className="flex flex-wrap items-center gap-3 sm:gap-4">
           <button
             onClick={handlePlayNow}
-            className="flex items-center gap-2 px-6 py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold text-sm sm:text-base shadow-xl shadow-emerald-500/30 transition-all duration-200 transform hover:scale-105 active:scale-95"
+            className="flex items-center gap-2 px-6 py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold text-sm sm:text-base shadow-xl shadow-emerald-500/30 transition-all duration-200 transform hover:scale-105 active:scale-95 focus:outline-none focus:ring-4 focus:ring-emerald-400 focus:scale-105"
           >
             <Play className="w-5 h-5 fill-black text-black" />
             <span>Assistir Agora</span>
@@ -175,7 +175,7 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({ items, onPlay, onSelect 
 
           <button
             onClick={() => onSelect(current, isSeries ? "series" : "movie")}
-            className="flex items-center gap-2 px-5 py-3.5 rounded-xl bg-white/15 hover:bg-white/25 text-white font-semibold text-sm sm:text-base backdrop-blur-md border border-white/15 transition-all duration-200 transform hover:scale-105"
+            className="flex items-center gap-2 px-5 py-3.5 rounded-xl bg-white/15 hover:bg-white/25 text-white font-semibold text-sm sm:text-base backdrop-blur-md border border-white/15 transition-all duration-200 transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-emerald-400 focus:scale-105"
           >
             <Info className="w-5 h-5" />
             <span>Mais Detalhes</span>
@@ -184,7 +184,7 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({ items, onPlay, onSelect 
           <button
             onClick={toggleFav}
             title={favorite ? "Remover da minha lista" : "Adicionar à minha lista"}
-            className={`p-3.5 rounded-xl backdrop-blur-md transition-all duration-200 ${
+            className={`p-3.5 rounded-xl backdrop-blur-md transition-all duration-200 focus:outline-none focus:ring-4 focus:ring-emerald-400 focus:scale-105 ${
               favorite
                 ? "bg-emerald-500 text-black font-bold shadow-lg shadow-emerald-500/25"
                 : "bg-black/50 text-gray-200 hover:text-white hover:bg-black/70 border border-white/15"

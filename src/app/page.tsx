@@ -45,8 +45,10 @@ import { SeriesView } from "@/components/SeriesView";
 import { FavoritesView } from "@/components/FavoritesView";
 import { SettingsModal } from "@/components/SettingsModal";
 import { SamsungTvInstallerModal } from "@/components/SamsungTvInstallerModal";
+import { useTvSpatialNavigation } from "@/hooks/useTvSpatialNavigation";
 
 export default function Home() {
+  useTvSpatialNavigation();
   const [activeTab, setActiveTab] = useState<MainTab>("home");
   const [activePlayable, setActivePlayable] = useState<PlayableItem | null>(null);
   const [selectedMedia, setSelectedMedia] = useState<{

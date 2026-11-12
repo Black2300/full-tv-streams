@@ -111,7 +111,15 @@ export const StreamCard: React.FC<StreamCardProps> = ({
   return (
     <div
       onClick={handleCardClick}
-      className={`group relative flex flex-col cursor-pointer rounded-2xl overflow-hidden bg-surface transition-all duration-300 hover:scale-[1.03] hover:z-20 hover:shadow-2xl hover:shadow-emerald-950/50 border border-white/5 hover:border-emerald-500/40 ${
+      tabIndex={0}
+      role="button"
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.keyCode === 13) {
+          e.preventDefault();
+          handleCardClick();
+        }
+      }}
+      className={`group relative flex flex-col cursor-pointer rounded-2xl overflow-hidden bg-surface transition-all duration-300 hover:scale-[1.03] hover:z-20 hover:shadow-2xl hover:shadow-emerald-950/50 focus:scale-[1.06] focus:z-30 focus:outline-none focus:ring-4 focus:ring-emerald-400 focus:shadow-2xl focus:shadow-emerald-500/50 border border-white/5 hover:border-emerald-500/40 focus:border-emerald-400 ${
         type === "live" ? "aspect-[16/10]" : "aspect-[2/3]"
       }`}
     >

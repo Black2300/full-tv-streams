@@ -305,7 +305,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <button
                   key={item.id}
                   onClick={() => handleNavClick(item.id)}
-                  className={`w-full flex items-center justify-between px-3.5 py-3 rounded-2xl text-sm font-semibold transition-all duration-200 ${
+                  className={`w-full flex items-center justify-between px-3.5 py-3 rounded-2xl text-sm font-semibold transition-all duration-200 focus:outline-none focus:ring-4 focus:ring-emerald-400 focus:scale-[1.03] ${
                     isActive
                       ? "bg-emerald-500 text-black font-extrabold shadow-lg shadow-emerald-500/25"
                       : "text-gray-300 hover:text-white hover:bg-white/5"
