@@ -53,15 +53,14 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
   const [aspectRatio, setAspectRatio] = useState<"contain" | "cover" | "fill">("contain");
   const [isLoading, setIsLoading] = useState(true);
+  const [loadDuration, setLoadDuration] = useState(0);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [showChannelsOverlay, setShowChannelsOverlay] = useState(false);
   const [channelSearch, setChannelSearch] = useState("");
-  const [useProxy, setUseProxy] = useState<boolean>(() => {
-    // For live m3u8 streams, proxy rewrites relative paths so default to proxy for m3u8
-    return item?.streamUrl?.includes(".m3u8") || item?.type === "live";
-  });
+  const [useProxy, setUseProxy] = useState<boolean>(true);
 
   const hideControlsTimeout = useRef<NodeJS.Timeout | null>(null);
+  const loadTimerRef = useRef<NodeJS.Timeout | null>(null);
   const retryCount = useRef(0);
 
   const handleUserActivity = useCallback(() => {
@@ -82,6 +81,33 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     ? `/api/stream-proxy?url=${encodeURIComponent(rawUrl)}`
     : rawUrl;
 
+  // Timer to track load duration and prevent infinite spinner
+  useEffect(() => {
+    if (!isLoading) {
+      setLoadDuration(0);
+      if (loadTimerRef.current) clearInterval(loadTimerRef.current);
+      return;
+    }
+
+    setLoadDuration(0);
+    loadTimerRef.current = setInterval(() => {
+      setLoadDuration((prev) => {
+        const next = prev + 1;
+        if (next >= 14 && !isPlaying) {
+          setErrorMsg(
+            "O servidor IPTV demorou para responder. Tente alternar o modo de conexão ou selecione outro título."
+          );
+          setIsLoading(false);
+        }
+        return next;
+      });
+    }, 1000);
+
+    return () => {
+      if (loadTimerRef.current) clearInterval(loadTimerRef.current);
+    };
+  }, [isLoading, isPlaying]);
+
   // Main playback initialization
   useEffect(() => {
     if (!item || !rawUrl || !videoRef.current) return;
@@ -89,6 +115,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     const video = videoRef.current;
     setIsLoading(true);
     setErrorMsg(null);
+    setLoadDuration(0);
 
     // Clean up any existing HLS instance
     if (hlsRef.current) {
@@ -100,6 +127,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
 
     // Helper for safe play (handles browser autoplay blocking)
     const safePlay = () => {
+      if (!video) return;
       const playPromise = video.play();
       if (playPromise !== undefined) {
         playPromise
@@ -177,7 +205,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
                 setUseProxy(true);
               } else {
                 setErrorMsg(
-                  "Não foi possível carregar a transmissão. O servidor de origem pode estar instável."
+                  "Não foi possível carregar a transmissão. O servidor de origem pode estar temporariamente fora do ar."
                 );
                 setIsLoading(false);
               }
@@ -192,14 +220,31 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
           }
         }
       });
+    } else if (isHls && video.canPlayType("application/vnd.apple.mpegurl")) {
+      // Native Safari / Tizen HLS support
+      video.src = currentStreamUrl;
+      video.load();
+      video.addEventListener(
+        "loadedmetadata",
+        () => {
+          setIsLoading(false);
+          safePlay();
+        },
+        { once: true }
+      );
+      safePlay();
     } else {
       // Direct MP4 / Native video playback (Works for movies, series & Smart TVs)
       video.src = currentStreamUrl;
       video.load();
-      video.onloadeddata = () => {
-        setIsLoading(false);
-        safePlay();
-      };
+      video.addEventListener(
+        "canplay",
+        () => {
+          setIsLoading(false);
+          safePlay();
+        },
+        { once: true }
+      );
       safePlay();
     }
 
@@ -222,8 +267,28 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     };
     const onPause = () => setIsPlaying(false);
     const onWaiting = () => setIsLoading(true);
-    const onPlaying = () => setIsLoading(false);
-    const onTimeUpdate = () => setCurrentTime(video.currentTime);
+    const onPlaying = () => {
+      setIsPlaying(true);
+      setIsLoading(false);
+    };
+    const onCanPlay = () => {
+      setIsLoading(false);
+    };
+    const onCanPlayThrough = () => {
+      setIsLoading(false);
+    };
+    const onLoadedMetadata = () => {
+      setIsLoading(false);
+    };
+    const onLoadedData = () => {
+      setIsLoading(false);
+    };
+    const onTimeUpdate = () => {
+      setCurrentTime(video.currentTime);
+      if (video.currentTime > 0) {
+        setIsLoading(false);
+      }
+    };
     const onDurationChange = () => setDuration(video.duration || 0);
 
     const onNativeError = () => {
@@ -242,6 +307,10 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     video.addEventListener("pause", onPause);
     video.addEventListener("waiting", onWaiting);
     video.addEventListener("playing", onPlaying);
+    video.addEventListener("canplay", onCanPlay);
+    video.addEventListener("canplaythrough", onCanPlayThrough);
+    video.addEventListener("loadedmetadata", onLoadedMetadata);
+    video.addEventListener("loadeddata", onLoadedData);
     video.addEventListener("timeupdate", onTimeUpdate);
     video.addEventListener("durationchange", onDurationChange);
     video.addEventListener("error", onNativeError);
@@ -251,6 +320,10 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
       video.removeEventListener("pause", onPause);
       video.removeEventListener("waiting", onWaiting);
       video.removeEventListener("playing", onPlaying);
+      video.removeEventListener("canplay", onCanPlay);
+      video.removeEventListener("canplaythrough", onCanPlayThrough);
+      video.removeEventListener("loadedmetadata", onLoadedMetadata);
+      video.removeEventListener("loadeddata", onLoadedData);
       video.removeEventListener("timeupdate", onTimeUpdate);
       video.removeEventListener("durationchange", onDurationChange);
       video.removeEventListener("error", onNativeError);
@@ -452,11 +525,29 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
 
       {/* Loading Spinner */}
       {isLoading && (
-        <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center bg-black/50 backdrop-blur-sm z-20">
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm z-20">
           <div className="w-16 h-16 rounded-full border-4 border-white/20 border-t-emerald-500 animate-spin mb-4" />
           <p className="text-white text-sm font-semibold tracking-wide drop-shadow animate-pulse">
             Carregando transmissão...
           </p>
+          {loadDuration >= 3 && (
+            <div className="mt-5 flex flex-col sm:flex-row items-center gap-3 pointer-events-auto animate-fade-in">
+              <button
+                onClick={togglePlay}
+                className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-bold text-xs flex items-center gap-1.5 transition-all shadow-lg shadow-emerald-500/20 active:scale-95"
+              >
+                <Play className="w-4 h-4 fill-black" />
+                <span>Iniciar Reprodução</span>
+              </button>
+              <button
+                onClick={toggleProxyMode}
+                className="px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-emerald-400 font-semibold text-xs border border-emerald-500/40 transition-all active:scale-95"
+              >
+                <Zap className="w-3.5 h-3.5 inline mr-1" />
+                <span>Usar Modo {useProxy ? "Direto" : "Proxy"}</span>
+              </button>
+            </div>
+          )}
         </div>
       )}
 
