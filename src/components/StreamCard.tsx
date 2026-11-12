@@ -22,15 +22,19 @@ export const StreamCard: React.FC<StreamCardProps> = ({
   onSelect,
 }) => {
   const [imgError, setImgError] = useState(false);
-  const [favorite, setFavorite] = useState(() => isFavorite(`${type}_${(item as any).stream_id || (item as any).series_id}`));
+  const [favorite, setFavorite] = useState(() =>
+    isFavorite(`${type}_${(item as any).stream_id || (item as any).series_id}`)
+  );
 
-  const id = type === "series" ? (item as SeriesItem).series_id : (item as LiveStream | VodStream).stream_id;
+  const id =
+    type === "series"
+      ? (item as SeriesItem).series_id
+      : (item as LiveStream | VodStream).stream_id;
   const rawTitle = (item as any).title || (item as any).name || "Sem Título";
   const title = rawTitle.replace(/\s*\(\d{4}\)$/, "").trim();
-  const year = (item as any).year || (rawTitle.match(/\((\d{4})\)/)?.[1]) || "";
+  const year = (item as any).year || rawTitle.match(/\((\d{4})\)/)?.[1] || "";
   const rating = (item as any).rating || (item as any).rating_5based;
 
-  // Resolve poster / thumbnail
   let posterUrl = "";
   if (type === "live") {
     posterUrl = (item as LiveStream).stream_icon || "";
@@ -90,7 +94,6 @@ export const StreamCard: React.FC<StreamCardProps> = ({
         streamUrl: getMovieStreamUrl(id, vod.container_extension || "mp4"),
       });
     } else {
-      // For series, opening details modal to choose season/episode is the best UX
       if (onSelect) {
         onSelect(item, type);
       }
@@ -108,12 +111,12 @@ export const StreamCard: React.FC<StreamCardProps> = ({
   return (
     <div
       onClick={handleCardClick}
-      className={`group relative flex flex-col cursor-pointer rounded-xl overflow-hidden bg-surface transition-all duration-300 hover:scale-[1.03] hover:z-20 hover:shadow-2xl hover:shadow-red-950/40 border border-white/5 hover:border-white/20 ${
+      className={`group relative flex flex-col cursor-pointer rounded-2xl overflow-hidden bg-surface transition-all duration-300 hover:scale-[1.03] hover:z-20 hover:shadow-2xl hover:shadow-emerald-950/50 border border-white/5 hover:border-emerald-500/40 ${
         type === "live" ? "aspect-[16/10]" : "aspect-[2/3]"
       }`}
     >
-      {/* Poster / Thumbnail Image */}
-      <div className="relative w-full h-full overflow-hidden bg-[#161824] flex items-center justify-center">
+      {/* Poster / Thumbnail Container */}
+      <div className="relative w-full h-full overflow-hidden bg-[#11141e] flex items-center justify-center">
         {cleanPoster && !imgError ? (
           <img
             src={cleanPoster}
@@ -126,32 +129,36 @@ export const StreamCard: React.FC<StreamCardProps> = ({
           />
         ) : (
           <div className="flex flex-col items-center justify-center p-4 text-center text-gray-500">
-            {type === "live" ? <Tv className="w-10 h-10 mb-2 opacity-40 text-red-500" /> : <Film className="w-10 h-10 mb-2 opacity-40 text-red-500" />}
+            {type === "live" ? (
+              <Tv className="w-10 h-10 mb-2 opacity-40 text-emerald-500" />
+            ) : (
+              <Film className="w-10 h-10 mb-2 opacity-40 text-emerald-500" />
+            )}
             <span className="text-xs line-clamp-2 font-medium">{title}</span>
           </div>
         )}
 
         {/* Gradient overlay on hover */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-3 z-10" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-3.5 z-10" />
 
         {/* Live Badge for TV Channels */}
         {type === "live" && (
-          <div className="absolute top-2 left-2 z-10 flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-red-600/90 backdrop-blur-sm text-[10px] font-bold text-white shadow-md">
-            <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
+          <div className="absolute top-2.5 left-2.5 z-10 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500 text-[10px] font-black text-black shadow-lg shadow-emerald-500/30">
+            <span className="w-1.5 h-1.5 rounded-full bg-black animate-ping" />
             <span>AO VIVO</span>
           </div>
         )}
 
-        {/* Rating Badge for Movies & Series */}
+        {/* Rating Badge */}
         {rating && Number(rating) > 0 && (
-          <div className="absolute top-2 right-2 z-10 flex items-center gap-1 px-2 py-0.5 rounded-md bg-black/75 backdrop-blur-md text-[11px] font-semibold text-amber-400 border border-white/10 shadow">
+          <div className="absolute top-2.5 right-2.5 z-10 flex items-center gap-1 px-2 py-0.5 rounded-md bg-black/80 backdrop-blur-md text-[11px] font-bold text-amber-400 border border-white/10 shadow">
             <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
             <span>{typeof rating === "number" ? rating.toFixed(1) : rating}</span>
           </div>
         )}
 
         {/* Hover Action Overlay */}
-        <div className="absolute inset-0 z-20 flex flex-col justify-between p-3 opacity-0 group-hover:opacity-100 transition-all duration-300">
+        <div className="absolute inset-0 z-20 flex flex-col justify-between p-3.5 opacity-0 group-hover:opacity-100 transition-all duration-300">
           {/* Top action buttons */}
           <div className="flex justify-end">
             <button
@@ -159,7 +166,7 @@ export const StreamCard: React.FC<StreamCardProps> = ({
               title={favorite ? "Remover dos favoritos" : "Adicionar aos favoritos"}
               className={`p-2 rounded-full backdrop-blur-md transition-all ${
                 favorite
-                  ? "bg-red-600 text-white shadow-lg shadow-red-600/40"
+                  ? "bg-emerald-500 text-black shadow-lg shadow-emerald-500/40"
                   : "bg-black/60 text-gray-300 hover:text-white hover:bg-black/80 border border-white/10"
               }`}
             >
@@ -171,9 +178,9 @@ export const StreamCard: React.FC<StreamCardProps> = ({
           <div className="flex justify-center items-center">
             <button
               onClick={handlePlayClick}
-              className="p-3.5 rounded-full bg-red-600 hover:bg-red-500 text-white shadow-xl shadow-red-600/50 transform group-hover:scale-110 transition-transform duration-200"
+              className="p-3.5 rounded-full bg-emerald-500 hover:bg-emerald-400 text-black shadow-xl shadow-emerald-500/40 transform group-hover:scale-110 transition-transform duration-200"
             >
-              <Play className="w-5 h-5 fill-white" />
+              <Play className="w-5 h-5 fill-black text-black" />
             </button>
           </div>
 
@@ -186,7 +193,7 @@ export const StreamCard: React.FC<StreamCardProps> = ({
               {year && <span>{year}</span>}
               {categoryName && (
                 <>
-                  <span className="w-1 h-1 rounded-full bg-gray-500" />
+                  <span className="w-1 h-1 rounded-full bg-emerald-500" />
                   <span className="truncate max-w-[120px]">{categoryName}</span>
                 </>
               )}
@@ -195,13 +202,16 @@ export const StreamCard: React.FC<StreamCardProps> = ({
         </div>
       </div>
 
-      {/* Static Footer below card for Live TV and clean display */}
-      <div className="p-2.5 bg-surface/90 flex flex-col justify-between flex-1">
-        <h3 className="text-xs sm:text-sm font-medium text-gray-200 line-clamp-1 group-hover:text-red-400 transition-colors">
+      {/* Static Footer */}
+      <div className="p-3 bg-surface flex flex-col justify-between flex-1">
+        <h3 className="text-xs sm:text-sm font-medium text-gray-200 line-clamp-1 group-hover:text-emerald-400 transition-colors">
           {title}
         </h3>
-        <div className="flex items-center justify-between text-[11px] text-gray-400 mt-1">
-          <span className="truncate">{categoryName || (type === "live" ? "TV ao Vivo" : type === "movie" ? "Filme" : "Série")}</span>
+        <div className="flex items-center justify-between text-[11px] text-gray-400 mt-1.5">
+          <span className="truncate">
+            {categoryName ||
+              (type === "live" ? "TV ao Vivo" : type === "movie" ? "Filme" : "Série")}
+          </span>
           {year && <span className="text-gray-500">{year}</span>}
         </div>
       </div>

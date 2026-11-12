@@ -7,13 +7,9 @@ import {
   Server,
   User,
   Key,
-  ShieldCheck,
-  Calendar,
   RotateCcw,
   Check,
-  AlertCircle,
   Wifi,
-  Trash2,
 } from "lucide-react";
 import { AuthResponse } from "@/types/iptv";
 import { fetchAuth, DEFAULT_CONFIG } from "@/services/iptv";
@@ -108,14 +104,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
     : "Ilimitado / Não especificado";
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 select-none animate-fade-in">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 select-none animate-fade-in">
       <div className="fixed inset-0 -z-10" onClick={onClose} />
 
-      <div className="relative w-full max-w-xl bg-[#12141c] border border-white/10 rounded-2xl overflow-hidden shadow-2xl p-6 sm:p-8 space-y-6">
+      <div className="relative w-full max-w-xl bg-[#0d1017] border border-white/10 rounded-2xl overflow-hidden shadow-2xl p-6 sm:p-8 space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between pb-4 border-b border-white/10">
           <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-xl bg-red-600/20 text-red-500 border border-red-500/30">
+            <div className="p-2.5 rounded-xl bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
               <Settings className="w-5 h-5" />
             </div>
             <div>
@@ -175,7 +171,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
           )}
         </div>
 
-        {/* Editable Server Credentials */}
+        {/* Server Credentials Form */}
         <div className="space-y-3.5">
           <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider">
             Credenciais do Servidor Xtream / M3U
@@ -183,40 +179,40 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
 
           <div>
             <label className="block text-xs font-medium text-gray-300 mb-1 flex items-center gap-1.5">
-              <Server className="w-3.5 h-3.5 text-red-500" />
+              <Server className="w-3.5 h-3.5 text-emerald-400" />
               <span>URL do Servidor</span>
             </label>
             <input
               type="text"
               value={server}
               onChange={(e) => setServer(e.target.value)}
-              className="w-full px-3.5 py-2 rounded-xl bg-surface-light border border-white/10 text-white text-xs font-mono focus:outline-none focus:border-red-500"
+              className="w-full px-3.5 py-2 rounded-xl bg-surface-light border border-white/10 text-white text-xs font-mono focus:outline-none focus:border-emerald-500"
             />
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-gray-300 mb-1 flex items-center gap-1.5">
-                <User className="w-3.5 h-3.5 text-red-500" />
+                <User className="w-3.5 h-3.5 text-emerald-400" />
                 <span>Usuário</span>
               </label>
               <input
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                className="w-full px-3.5 py-2 rounded-xl bg-surface-light border border-white/10 text-white text-xs font-mono focus:outline-none focus:border-red-500"
+                className="w-full px-3.5 py-2 rounded-xl bg-surface-light border border-white/10 text-white text-xs font-mono focus:outline-none focus:border-emerald-500"
               />
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-300 mb-1 flex items-center gap-1.5">
-                <Key className="w-3.5 h-3.5 text-red-500" />
+                <Key className="w-3.5 h-3.5 text-emerald-400" />
                 <span>Senha</span>
               </label>
               <input
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-3.5 py-2 rounded-xl bg-surface-light border border-white/10 text-white text-xs font-mono focus:outline-none focus:border-red-500"
+                className="w-full px-3.5 py-2 rounded-xl bg-surface-light border border-white/10 text-white text-xs font-mono focus:outline-none focus:border-emerald-500"
               />
             </div>
           </div>
@@ -247,7 +243,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
           <div className="flex items-center gap-2">
             <button
               onClick={handleSave}
-              className="flex items-center gap-2 px-5 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-bold shadow-lg shadow-red-600/30 transition-all"
+              className="flex items-center gap-2 px-5 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-bold shadow-lg shadow-emerald-500/30 transition-all"
             >
               {isSaved ? <Check className="w-4 h-4" /> : null}
               <span>{isSaved ? "Salvo com Sucesso!" : "Salvar"}</span>

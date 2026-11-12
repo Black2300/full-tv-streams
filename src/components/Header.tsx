@@ -10,13 +10,10 @@ import {
   Settings,
   X,
   Menu,
-  ChevronDown,
-  Sparkles,
   Home,
-  CheckCircle2,
 } from "lucide-react";
 import { MainTab, PlayableItem, VodStream, SeriesItem, LiveStream } from "@/types/iptv";
-import { getLiveStreamUrl, getMovieStreamUrl } from "@/services/iptv";
+import { getLiveStreamUrl } from "@/services/iptv";
 
 interface HeaderProps {
   activeTab: MainTab;
@@ -47,7 +44,7 @@ export const Header: React.FC<HeaderProps> = ({
 
   useEffect(() => {
     const handleScroll = () => {
-      setIsScrolled(window.scrollY > 40);
+      setIsScrolled(window.scrollY > 30);
     };
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
@@ -87,44 +84,44 @@ export const Header: React.FC<HeaderProps> = ({
     <header
       className={`fixed top-0 inset-x-0 z-40 transition-all duration-300 ${
         isScrolled
-          ? "bg-[#090a0f]/95 backdrop-blur-md shadow-lg border-b border-white/5 py-3"
-          : "bg-gradient-to-b from-[#090a0f]/90 via-[#090a0f]/40 to-transparent py-4 sm:py-5"
+          ? "bg-[#07080c]/95 backdrop-blur-md shadow-xl border-b border-white/5 py-3"
+          : "bg-gradient-to-b from-[#07080c]/90 via-[#07080c]/40 to-transparent py-4 sm:py-5"
       }`}
     >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 flex items-center justify-between gap-4">
-        {/* Brand Logo & Tag */}
-        <div className="flex items-center gap-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4">
+        {/* Brand Logo */}
+        <div className="flex items-center gap-6 lg:gap-8">
           <button
             onClick={() => onTabChange("home")}
             className="flex items-center gap-2.5 text-left group focus:outline-none"
           >
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-red-600 to-red-800 flex items-center justify-center text-white shadow-lg shadow-red-600/30 group-hover:scale-105 transition-transform">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-700 flex items-center justify-center text-white shadow-lg shadow-emerald-500/25 group-hover:scale-105 transition-transform">
               <Tv className="w-5 h-5 text-white" />
             </div>
             <div>
               <div className="flex items-center gap-1.5 leading-none">
                 <span className="font-extrabold text-lg sm:text-xl text-white tracking-wider">
-                  FULL<span className="text-red-500">TV</span>
+                  FULL<span className="text-emerald-400">TV</span>
                 </span>
-                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-red-600/20 text-red-400 border border-red-500/30 tracking-tight">
+                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 tracking-tight">
                   HD
                 </span>
               </div>
-              <span className="text-[10px] text-gray-400 font-medium tracking-widest block uppercase">
+              <span className="text-[10px] text-gray-400 font-medium tracking-widest block uppercase mt-0.5">
                 Ao Vivo & VOD
               </span>
             </div>
           </button>
 
           {/* Desktop Navigation Links */}
-          <nav className="hidden lg:flex items-center gap-1">
+          <nav className="hidden lg:flex items-center gap-1.5">
             {navItems.map((item) => (
               <button
                 key={item.id}
                 onClick={() => onTabChange(item.id)}
-                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200 ${
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200 ${
                   activeTab === item.id
-                    ? "bg-red-600 text-white shadow-md shadow-red-600/30"
+                    ? "bg-emerald-500 text-black font-bold shadow-md shadow-emerald-500/30"
                     : "text-gray-300 hover:text-white hover:bg-white/5"
                 }`}
               >
@@ -135,13 +132,13 @@ export const Header: React.FC<HeaderProps> = ({
           </nav>
         </div>
 
-        {/* Right Action Icons: Search, Status, Settings */}
+        {/* Right Action Icons */}
         <div className="flex items-center gap-2 sm:gap-3">
           {/* Search Trigger or Input */}
           <div className="relative">
             {isSearchOpen ? (
-              <div className="flex items-center bg-surface-light border border-white/20 rounded-xl px-3 py-1.5 w-60 sm:w-80 shadow-2xl animate-fade-in">
-                <Search className="w-4 h-4 text-gray-400 mr-2 flex-shrink-0" />
+              <div className="flex items-center bg-surface-light border border-emerald-500/40 rounded-xl px-3.5 py-2 w-64 sm:w-80 shadow-2xl animate-fade-in">
+                <Search className="w-4 h-4 text-emerald-400 mr-2 flex-shrink-0" />
                 <input
                   ref={searchInputRef}
                   type="text"
@@ -160,7 +157,7 @@ export const Header: React.FC<HeaderProps> = ({
             ) : (
               <button
                 onClick={openSearch}
-                className="p-2 sm:p-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white backdrop-blur-md border border-white/10 transition-all"
+                className="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white backdrop-blur-md border border-white/10 transition-all hover:border-emerald-500/30"
                 title="Pesquisar"
               >
                 <Search className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -169,14 +166,14 @@ export const Header: React.FC<HeaderProps> = ({
 
             {/* Instant Search Results Dropdown */}
             {isSearchOpen && q.length >= 2 && (
-              <div className="absolute right-0 top-12 w-80 sm:w-96 max-h-[70vh] overflow-y-auto bg-[#12141c] border border-white/15 rounded-2xl p-4 shadow-2xl z-50 animate-fade-in">
+              <div className="absolute right-0 top-full mt-2 w-80 sm:w-96 max-h-[70vh] overflow-y-auto bg-[#0d1017] border border-white/10 rounded-2xl p-4 shadow-2xl z-50 animate-fade-in">
                 <div className="flex items-center justify-between pb-2 mb-3 border-b border-white/10">
                   <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">
-                    {totalResultsCount} resultados encontrados
+                    {totalResultsCount} resultados
                   </span>
                   <button
                     onClick={closeSearch}
-                    className="text-xs text-red-400 hover:text-red-300"
+                    className="text-xs text-emerald-400 hover:text-emerald-300"
                   >
                     Fechar
                   </button>
@@ -191,7 +188,7 @@ export const Header: React.FC<HeaderProps> = ({
                     {/* Live TV Channels */}
                     {searchResults && searchResults.live.length > 0 && (
                       <div>
-                        <h4 className="text-[11px] font-bold text-red-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                        <h4 className="text-[11px] font-bold text-emerald-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
                           <Tv className="w-3.5 h-3.5" />
                           <span>Canais ao Vivo</span>
                         </h4>
@@ -219,7 +216,7 @@ export const Header: React.FC<HeaderProps> = ({
                                     className="w-full h-full object-contain"
                                   />
                                 ) : (
-                                  <Tv className="w-3.5 h-3.5 text-red-500" />
+                                  <Tv className="w-3.5 h-3.5 text-emerald-400" />
                                 )}
                               </div>
                               <span className="text-xs text-gray-200 line-clamp-1 font-medium">
@@ -234,7 +231,7 @@ export const Header: React.FC<HeaderProps> = ({
                     {/* Movies */}
                     {searchResults && searchResults.movies.length > 0 && (
                       <div>
-                        <h4 className="text-[11px] font-bold text-red-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                        <h4 className="text-[11px] font-bold text-emerald-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
                           <Film className="w-3.5 h-3.5" />
                           <span>Filmes</span>
                         </h4>
@@ -276,7 +273,7 @@ export const Header: React.FC<HeaderProps> = ({
                     {/* Series */}
                     {searchResults && searchResults.series.length > 0 && (
                       <div>
-                        <h4 className="text-[11px] font-bold text-red-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                        <h4 className="text-[11px] font-bold text-emerald-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
                           <Video className="w-3.5 h-3.5" />
                           <span>Séries</span>
                         </h4>
@@ -320,9 +317,9 @@ export const Header: React.FC<HeaderProps> = ({
             )}
           </div>
 
-          {/* Server Connection Status Pill */}
-          <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-surface-light border border-white/10 text-xs font-semibold text-gray-300">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+          {/* Connection Pill */}
+          <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-surface-light border border-white/5 text-xs font-semibold text-gray-300">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
             <span className="hidden md:inline">Online</span>
             <span className="text-gray-500">•</span>
             <span className="text-gray-400 font-mono text-[11px]">kettericasa</span>
@@ -331,25 +328,25 @@ export const Header: React.FC<HeaderProps> = ({
           {/* Settings Trigger */}
           <button
             onClick={onOpenSettings}
-            className="p-2 sm:p-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white backdrop-blur-md border border-white/10 transition-all"
+            className="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white backdrop-blur-md border border-white/10 transition-all hover:border-emerald-500/30"
             title="Configurações da Conta"
           >
             <Settings className="w-4 h-4 sm:w-5 sm:h-5" />
           </button>
 
-          {/* Mobile Navigation Menu Toggle */}
+          {/* Mobile Menu Toggle */}
           <button
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className="lg:hidden p-2 rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white border border-white/10"
+            className="lg:hidden p-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white border border-white/10"
           >
             {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
         </div>
       </div>
 
-      {/* Mobile Drawer Navigation Menu */}
+      {/* Mobile Drawer Menu */}
       {isMobileMenuOpen && (
-        <div className="lg:hidden bg-[#090a0f]/98 backdrop-blur-2xl border-b border-white/10 px-4 py-4 space-y-2 animate-fade-in shadow-2xl">
+        <div className="lg:hidden bg-[#07080c]/98 backdrop-blur-2xl border-b border-white/10 px-4 py-4 space-y-2 animate-fade-in shadow-2xl">
           {navItems.map((item) => (
             <button
               key={item.id}
@@ -359,7 +356,7 @@ export const Header: React.FC<HeaderProps> = ({
               }}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all ${
                 activeTab === item.id
-                  ? "bg-red-600 text-white shadow-md shadow-red-600/30"
+                  ? "bg-emerald-500 text-black font-bold shadow-md shadow-emerald-500/30"
                   : "text-gray-300 hover:bg-white/10 hover:text-white"
               }`}
             >

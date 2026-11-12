@@ -11,8 +11,6 @@ import {
   Clock,
   Film,
   Tv,
-  Users,
-  UserCheck,
 } from "lucide-react";
 import {
   VodStream,
@@ -76,14 +74,13 @@ export const MediaDetailModal: React.FC<MediaDetailModalProps> = ({
 
   const rawTitle = item.title || item.name || "Detalhes";
   const title = rawTitle.replace(/\s*\(\d{4}\)$/, "").trim();
-  const year = item.year || (rawTitle.match(/\((\d{4})\)/)?.[1]) || "";
+  const year = item.year || rawTitle.match(/\((\d{4})\)/)?.[1] || "";
   const rating = item.rating || item.rating_5based;
   const genre = item.genre || "";
   const plot = item.plot || "Sinopse não disponível para este título.";
   const cast = item.cast || "";
   const director = item.director || "";
 
-  // Resolve best backdrop & poster
   let backdropUrl = "";
   if (item.backdrop_path && item.backdrop_path.length > 0) {
     backdropUrl = item.backdrop_path[0];
@@ -168,15 +165,14 @@ export const MediaDetailModal: React.FC<MediaDetailModalProps> = ({
   const seasonList = seriesData?.episodes ? Object.keys(seriesData.episodes) : [];
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 md:p-6 select-none animate-fade-in">
-      {/* Click outside to close */}
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-5 select-none animate-fade-in">
       <div className="fixed inset-0 -z-10" onClick={onClose} />
 
-      <div className="relative w-full max-w-4xl bg-[#12141c] border border-white/10 rounded-2xl overflow-hidden shadow-2xl my-auto">
+      <div className="relative w-full max-w-4xl bg-[#0d1017] border border-white/10 rounded-2xl overflow-hidden shadow-2xl my-auto">
         {/* Close Button */}
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 z-30 p-2.5 rounded-full bg-black/70 hover:bg-red-600 text-white backdrop-blur-md border border-white/15 transition-all"
+          className="absolute top-4 right-4 z-30 p-2.5 rounded-full bg-black/70 hover:bg-emerald-500 hover:text-black text-white backdrop-blur-md border border-white/15 transition-all"
         >
           <X className="w-5 h-5" />
         </button>
@@ -190,28 +186,28 @@ export const MediaDetailModal: React.FC<MediaDetailModalProps> = ({
               className="w-full h-full object-cover object-center"
             />
           ) : (
-            <div className="w-full h-full bg-gradient-to-br from-red-950/40 via-surface to-background" />
+            <div className="w-full h-full bg-gradient-to-br from-emerald-950/40 via-surface to-background" />
           )}
 
-          <div className="absolute inset-0 bg-gradient-to-t from-[#12141c] via-[#12141c]/50 to-transparent" />
-          <div className="absolute inset-0 bg-gradient-to-r from-[#12141c] via-[#12141c]/60 to-transparent w-full md:w-2/3" />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#0d1017] via-[#0d1017]/50 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-r from-[#0d1017] via-[#0d1017]/60 to-transparent w-full md:w-2/3" />
 
           {/* Quick info over backdrop */}
           <div className="absolute bottom-6 left-6 right-6 flex items-end justify-between">
             <div>
               <div className="flex items-center gap-2 mb-2">
-                <span className="px-2.5 py-0.5 rounded-md bg-red-600 text-[11px] font-extrabold text-white uppercase tracking-wider shadow">
+                <span className="px-2.5 py-0.5 rounded-md bg-emerald-500 text-[11px] font-black text-black uppercase tracking-wider shadow">
                   {isSeries ? "Série" : "Filme"}
                 </span>
                 {rating && Number(rating) > 0 && (
-                  <div className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-black/60 backdrop-blur-md text-xs font-bold text-amber-400 border border-white/10">
+                  <div className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-black/70 backdrop-blur-md text-xs font-bold text-amber-400 border border-white/10">
                     <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
                     <span>{typeof rating === "number" ? rating.toFixed(1) : rating}</span>
                   </div>
                 )}
                 {year && <span className="text-xs font-semibold text-gray-300">{year}</span>}
               </div>
-              <h2 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-white drop-shadow-md">
+              <h2 className="text-2xl sm:text-3xl md:text-4xl font-black text-white drop-shadow-md">
                 {title}
               </h2>
             </div>
@@ -219,9 +215,9 @@ export const MediaDetailModal: React.FC<MediaDetailModalProps> = ({
             {!isSeries && (
               <button
                 onClick={handlePlayMovie}
-                className="hidden sm:flex items-center gap-2 px-6 py-3 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold shadow-xl shadow-red-600/40 transition-all transform hover:scale-105 active:scale-95"
+                className="hidden sm:flex items-center gap-2 px-6 py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold shadow-xl shadow-emerald-500/30 transition-all transform hover:scale-105 active:scale-95"
               >
-                <Play className="w-5 h-5 fill-white" />
+                <Play className="w-5 h-5 fill-black text-black" />
                 <span>Assistir Filme</span>
               </button>
             )}
@@ -230,14 +226,14 @@ export const MediaDetailModal: React.FC<MediaDetailModalProps> = ({
 
         {/* Modal Body */}
         <div className="p-6 sm:p-8 space-y-6">
-          {/* Action Row for Mobile / Actions */}
+          {/* Action Row */}
           <div className="flex flex-wrap items-center gap-3">
             {!isSeries && (
               <button
                 onClick={handlePlayMovie}
-                className="sm:hidden flex-1 flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold shadow-lg shadow-red-600/30"
+                className="sm:hidden flex-1 flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold shadow-lg shadow-emerald-500/30"
               >
-                <Play className="w-5 h-5 fill-white" />
+                <Play className="w-5 h-5 fill-black text-black" />
                 <span>Assistir Filme</span>
               </button>
             )}
@@ -246,11 +242,11 @@ export const MediaDetailModal: React.FC<MediaDetailModalProps> = ({
               onClick={toggleFav}
               className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border transition-all ${
                 favorite
-                  ? "bg-red-600/20 border-red-500 text-red-400"
+                  ? "bg-emerald-500/20 border-emerald-500/40 text-emerald-400"
                   : "bg-surface-light hover:bg-white/10 border-white/10 text-gray-200"
               }`}
             >
-              {favorite ? <Check className="w-4 h-4 text-red-500" /> : <Plus className="w-4 h-4" />}
+              {favorite ? <Check className="w-4 h-4 text-emerald-400" /> : <Plus className="w-4 h-4" />}
               <span>{favorite ? "Na Minha Lista" : "Adicionar à Lista"}</span>
             </button>
 
@@ -271,7 +267,7 @@ export const MediaDetailModal: React.FC<MediaDetailModalProps> = ({
           {/* Synopsis & Cast */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="md:col-span-2 space-y-3">
-              <h3 className="text-sm font-bold uppercase tracking-wider text-gray-400">Sinopse</h3>
+              <h3 className="text-xs font-bold uppercase tracking-wider text-emerald-400">Sinopse</h3>
               <p className="text-gray-300 text-sm leading-relaxed">{plot}</p>
             </div>
 
@@ -291,12 +287,12 @@ export const MediaDetailModal: React.FC<MediaDetailModalProps> = ({
             </div>
           </div>
 
-          {/* Series Seasons & Episodes Section */}
+          {/* Series Seasons & Episodes */}
           {isSeries && (
             <div className="pt-4 border-t border-white/10">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                  <Tv className="w-5 h-5 text-red-500" />
+                <h3 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
+                  <Tv className="w-5 h-5 text-emerald-400" />
                   <span>Temporadas e Episódios</span>
                 </h3>
 
@@ -309,7 +305,7 @@ export const MediaDetailModal: React.FC<MediaDetailModalProps> = ({
                         onClick={() => setActiveSeason(season)}
                         className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
                           activeSeason === season
-                            ? "bg-red-600 text-white shadow-md shadow-red-600/30"
+                            ? "bg-emerald-500 text-black font-bold shadow-md shadow-emerald-500/30"
                             : "bg-surface-light text-gray-300 hover:bg-white/10"
                         }`}
                       >
@@ -322,8 +318,8 @@ export const MediaDetailModal: React.FC<MediaDetailModalProps> = ({
 
               {loadingSeries ? (
                 <div className="py-12 flex flex-col items-center justify-center text-gray-400">
-                  <div className="w-8 h-8 rounded-full border-2 border-white/20 border-t-red-600 animate-spin mb-3" />
-                  <span className="text-xs">Carregando lista de episódios...</span>
+                  <div className="w-8 h-8 rounded-full border-2 border-white/20 border-t-emerald-500 animate-spin mb-3" />
+                  <span className="text-xs">Carregando episódios...</span>
                 </div>
               ) : episodes.length > 0 ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-80 overflow-y-auto pr-1">
@@ -337,7 +333,7 @@ export const MediaDetailModal: React.FC<MediaDetailModalProps> = ({
                       <div
                         key={ep.id || idx}
                         onClick={() => handlePlayEpisode(ep, episodes, idx)}
-                        className="group flex gap-3 p-2.5 rounded-xl bg-surface-light/60 hover:bg-surface-light border border-white/5 hover:border-red-500/40 cursor-pointer transition-all"
+                        className="group flex gap-3 p-2.5 rounded-xl bg-surface-light/60 hover:bg-surface-light border border-white/5 hover:border-emerald-500/40 cursor-pointer transition-all"
                       >
                         {/* Thumbnail */}
                         <div className="relative w-24 sm:w-28 h-16 rounded-lg overflow-hidden bg-black/50 flex-shrink-0">
@@ -353,15 +349,15 @@ export const MediaDetailModal: React.FC<MediaDetailModalProps> = ({
                             </div>
                           )}
                           <div className="absolute inset-0 bg-black/40 group-hover:bg-black/10 flex items-center justify-center transition-all">
-                            <div className="p-1.5 rounded-full bg-red-600 text-white opacity-90 group-hover:opacity-100 group-hover:scale-110 transition-transform">
-                              <Play className="w-3 h-3 fill-white" />
+                            <div className="p-1.5 rounded-full bg-emerald-500 text-black opacity-90 group-hover:opacity-100 group-hover:scale-110 transition-transform">
+                              <Play className="w-3.5 h-3.5 fill-black text-black" />
                             </div>
                           </div>
                         </div>
 
                         {/* Info */}
                         <div className="flex-1 flex flex-col justify-center min-w-0">
-                          <div className="flex items-center gap-1.5 text-[10px] font-bold text-red-400 uppercase">
+                          <div className="flex items-center gap-1.5 text-[10px] font-bold text-emerald-400 uppercase">
                             <span>Ep. {ep.episode_num}</span>
                             {ep.info?.duration_secs ? (
                               <span className="text-gray-400">
@@ -369,7 +365,7 @@ export const MediaDetailModal: React.FC<MediaDetailModalProps> = ({
                               </span>
                             ) : null}
                           </div>
-                          <h4 className="text-xs sm:text-sm font-semibold text-white line-clamp-1 group-hover:text-red-400 transition-colors">
+                          <h4 className="text-xs sm:text-sm font-semibold text-white line-clamp-1 group-hover:text-emerald-400 transition-colors">
                             {epTitle}
                           </h4>
                           {ep.info?.plot && (

@@ -9,28 +9,35 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        background: "#090a0f",
-        surface: "#12141c",
-        "surface-light": "#1c1f2e",
+        background: "#07080c",
+        surface: {
+          DEFAULT: "#0e111a",
+          light: "#161a26",
+          lighter: "#1f2436",
+        },
         primary: {
-          DEFAULT: "#e50914",
-          hover: "#f40612",
+          DEFAULT: "#10b981", // Emerald green
+          hover: "#059669",
+          light: "#34d399",
+          dark: "#047857",
         },
         brand: {
-          50: "#fdf2f2",
-          100: "#fde8e8",
-          500: "#e50914",
-          600: "#b80710",
+          50: "#ecfdf5",
+          100: "#d1fae5",
+          400: "#34d399",
+          500: "#10b981",
+          600: "#059669",
+          700: "#047857",
+          900: "#064e3b",
         },
-        accent: "#6366f1",
+        accent: "#10b981",
       },
       backgroundImage: {
         "gradient-radial": "radial-gradient(var(--tw-gradient-stops))",
-        "hero-gradient": "linear-gradient(to top, #090a0f 10%, rgba(9, 10, 15, 0.7) 50%, rgba(9, 10, 15, 0.1) 100%)",
       },
       animation: {
         "pulse-slow": "pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite",
-        "fade-in": "fadeIn 0.3s ease-out forwards",
+        "fade-in": "fadeIn 0.25s ease-out forwards",
       },
       keyframes: {
         fadeIn: {

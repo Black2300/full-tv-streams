@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<widget xmlns="http://www.w3.org/ns/widgets" xmlns:tizen="http://tizen.org/ns/tizen" id="http://fulltvstreams.fun/widget" version="1.0.0" viewmodes="fullscreen">
+    <tizen:application id="com.fulltv.streams" exec="index.html" screen-orientation="landscape" context-menu="enable"/>
+    <name>Full TV Streams</name>
+    <description>Aplicativo oficial Full TV Streams para Smart TV Samsung</description>
+    <author href="https://github.com/Black2300/full-tv-streams">Full TV Streams</author>
+    <content src="index.html"/>
+    <feature name="http://tizen.org/feature/screen.size.all"/>
+    <icon src="icon.png"/>
+    <tizen:privilege name="http://tizen.org/privilege/internet"/>
+    <tizen:privilege name="http://tizen.org/privilege/application.launch"/>
+    <tizen:privilege name="http://tizen.org/privilege/tv.audio"/>
+    <tizen:privilege name="http://tizen.org/privilege/tv.display"/>
+    <tizen:privilege name="http://tizen.org/privilege/tv.window"/>
+    <tizen:setting screen-orientation="landscape" context-menu="enable" background-support="disable" encryption="disable" install-location="auto"/>
+    <access origin="*" subdomains="true"/>
+</widget>

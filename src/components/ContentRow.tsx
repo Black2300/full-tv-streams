@@ -46,30 +46,30 @@ export const ContentRow: React.FC<ContentRowProps> = ({
   if (!items || items.length === 0) return null;
 
   return (
-    <div className="relative group/row my-6 sm:my-8 px-4 sm:px-8 md:px-12">
+    <div className="relative group/row my-6 sm:my-8 px-4 sm:px-8 lg:px-12 max-w-[1600px] mx-auto">
       {/* Row Header */}
-      <div className="flex items-end justify-between mb-3.5">
-        <div className="flex items-center gap-2.5">
-          {icon && <div className="text-red-500">{icon}</div>}
+      <div className="flex items-end justify-between mb-4">
+        <div className="flex items-center gap-3">
+          {icon && <div className="text-emerald-400">{icon}</div>}
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2.5">
               <h2 className="text-lg sm:text-xl md:text-2xl font-bold tracking-tight text-white">
                 {title}
               </h2>
               {badge && (
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-600/30 text-red-400 border border-red-500/30">
+                <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
                   {badge}
                 </span>
               )}
             </div>
-            {subtitle && <p className="text-xs text-gray-400 mt-0.5">{subtitle}</p>}
+            {subtitle && <p className="text-xs text-gray-400 mt-1">{subtitle}</p>}
           </div>
         </div>
 
         {onViewAll && (
           <button
             onClick={onViewAll}
-            className="text-xs sm:text-sm font-semibold text-red-500 hover:text-red-400 flex items-center gap-1 transition-colors group/all"
+            className="text-xs sm:text-sm font-semibold text-emerald-400 hover:text-emerald-300 flex items-center gap-1 transition-colors group/all"
           >
             <span>Ver todos</span>
             <ChevronRight className="w-4 h-4 transform group-hover/all:translate-x-0.5 transition-transform" />
@@ -79,10 +79,10 @@ export const ContentRow: React.FC<ContentRowProps> = ({
 
       {/* Row Container with Scroll Buttons */}
       <div className="relative">
-        {/* Left Arrow Button */}
+        {/* Left Arrow */}
         <button
           onClick={() => scroll("left")}
-          className="absolute -left-3 sm:-left-5 top-1/2 -translate-y-1/2 z-30 p-2 sm:p-2.5 rounded-full bg-black/80 hover:bg-red-600 text-white backdrop-blur-md opacity-0 group-hover/row:opacity-100 transition-all duration-200 border border-white/10 hover:border-transparent shadow-xl hidden md:flex items-center justify-center"
+          className="absolute -left-3 sm:-left-5 top-1/2 -translate-y-1/2 z-30 p-2.5 rounded-full bg-black/85 hover:bg-emerald-500 hover:text-black text-white backdrop-blur-md opacity-0 group-hover/row:opacity-100 transition-all duration-200 border border-white/10 hover:border-transparent shadow-xl hidden md:flex items-center justify-center"
         >
           <ChevronLeft className="w-5 h-5" />
         </button>
@@ -90,7 +90,7 @@ export const ContentRow: React.FC<ContentRowProps> = ({
         {/* Carousel Scroll Track */}
         <div
           ref={rowRef}
-          className="flex gap-3 sm:gap-4 overflow-x-auto no-scrollbar scroll-smooth py-2 px-1"
+          className="flex gap-3.5 sm:gap-4.5 overflow-x-auto no-scrollbar scroll-smooth py-3 px-1"
         >
           {items.map((item, idx) => {
             const key = `${type}_${(item as any).stream_id || (item as any).series_id || idx}`;
@@ -99,8 +99,8 @@ export const ContentRow: React.FC<ContentRowProps> = ({
                 key={key}
                 className={`flex-shrink-0 ${
                   type === "live"
-                    ? "w-[220px] sm:w-[260px] md:w-[280px]"
-                    : "w-[145px] sm:w-[175px] md:w-[200px]"
+                    ? "w-[230px] sm:w-[270px] md:w-[290px]"
+                    : "w-[150px] sm:w-[180px] md:w-[205px]"
                 }`}
               >
                 <StreamCard
@@ -115,10 +115,10 @@ export const ContentRow: React.FC<ContentRowProps> = ({
           })}
         </div>
 
-        {/* Right Arrow Button */}
+        {/* Right Arrow */}
         <button
           onClick={() => scroll("right")}
-          className="absolute -right-3 sm:-right-5 top-1/2 -translate-y-1/2 z-30 p-2 sm:p-2.5 rounded-full bg-black/80 hover:bg-red-600 text-white backdrop-blur-md opacity-0 group-hover/row:opacity-100 transition-all duration-200 border border-white/10 hover:border-transparent shadow-xl hidden md:flex items-center justify-center"
+          className="absolute -right-3 sm:-right-5 top-1/2 -translate-y-1/2 z-30 p-2.5 rounded-full bg-black/85 hover:bg-emerald-500 hover:text-black text-white backdrop-blur-md opacity-0 group-hover/row:opacity-100 transition-all duration-200 border border-white/10 hover:border-transparent shadow-xl hidden md:flex items-center justify-center"
         >
           <ChevronRight className="w-5 h-5" />
         </button>

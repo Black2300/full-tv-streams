@@ -15,10 +15,11 @@ import {
   Tv,
   Film,
   SkipForward,
-  Settings,
   RefreshCw,
   ExternalLink,
   ChevronRight,
+  Shield,
+  Zap,
 } from "lucide-react";
 import { PlayableItem, LiveStream } from "@/types/iptv";
 import { saveWatchProgress } from "@/services/storage";
@@ -47,7 +48,6 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const [volume, setVolume] = useState(1);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
-  const [buffered, setBuffered] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showControls, setShowControls] = useState(true);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
@@ -56,10 +56,14 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [showChannelsOverlay, setShowChannelsOverlay] = useState(false);
   const [channelSearch, setChannelSearch] = useState("");
+  const [useProxy, setUseProxy] = useState<boolean>(() => {
+    // For live m3u8 streams, proxy rewrites relative paths so default to proxy for m3u8
+    return item?.streamUrl?.includes(".m3u8") || item?.type === "live";
+  });
 
   const hideControlsTimeout = useRef<NodeJS.Timeout | null>(null);
+  const retryCount = useRef(0);
 
-  // Activity timer to auto-hide controls
   const handleUserActivity = useCallback(() => {
     setShowControls(true);
     if (hideControlsTimeout.current) clearTimeout(hideControlsTimeout.current);
@@ -70,26 +74,56 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     }, 3500);
   }, [isPlaying]);
 
-  // Clean stream URL
-  const streamUrl = item?.streamUrl || "";
+  const rawUrl = item?.streamUrl || "";
   const isLive = item?.type === "live";
 
-  // Setup HLS / Video playback
+  // Build the active URL (Direct or through stream-proxy)
+  const currentStreamUrl = useProxy
+    ? `/api/stream-proxy?url=${encodeURIComponent(rawUrl)}`
+    : rawUrl;
+
+  // Main playback initialization
   useEffect(() => {
-    if (!item || !streamUrl || !videoRef.current) return;
+    if (!item || !rawUrl || !videoRef.current) return;
 
     const video = videoRef.current;
     setIsLoading(true);
     setErrorMsg(null);
-    setCurrentTime(0);
 
-    // Destroy existing HLS instance
+    // Clean up any existing HLS instance
     if (hlsRef.current) {
       hlsRef.current.destroy();
       hlsRef.current = null;
     }
 
-    const isHls = streamUrl.includes(".m3u8") || isLive;
+    const isHls = rawUrl.includes(".m3u8") || isLive;
+
+    // Helper for safe play (handles browser autoplay blocking)
+    const safePlay = () => {
+      const playPromise = video.play();
+      if (playPromise !== undefined) {
+        playPromise
+          .then(() => {
+            setIsLoading(false);
+            setIsPlaying(true);
+          })
+          .catch((err) => {
+            console.warn("Autoplay was blocked or failed, attempting muted autoplay:", err);
+            video.muted = true;
+            setIsMuted(true);
+            video
+              .play()
+              .then(() => {
+                setIsLoading(false);
+                setIsPlaying(true);
+              })
+              .catch((e) => {
+                console.error("Muted play also failed:", e);
+                setIsLoading(false);
+              });
+          });
+      }
+    };
 
     if (isHls && Hls.isSupported()) {
       const hls = new Hls({
@@ -98,62 +132,75 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
         backBufferLength: 60,
         maxBufferLength: 30,
         maxMaxBufferLength: 60,
+        xhrSetup: (xhr, url) => {
+          xhr.withCredentials = false;
+        },
       });
 
       hlsRef.current = hls;
-      hls.loadSource(streamUrl);
+      hls.loadSource(currentStreamUrl);
       hls.attachMedia(video);
 
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
         setIsLoading(false);
-        video.play().catch((e) => {
-          console.warn("Autoplay was prevented, attempting muted play:", e);
-          video.muted = true;
-          setIsMuted(true);
-          video.play().catch(console.error);
-        });
+        safePlay();
       });
 
       hls.on(Hls.Events.ERROR, (_event, data) => {
+        console.warn("HLS Event Error:", data);
+
+        if (data.details === "manifestParsingError") {
+          console.log("Manifest error, falling back to direct video element...");
+          hls.destroy();
+          hlsRef.current = null;
+          video.src = currentStreamUrl;
+          video.load();
+          safePlay();
+          return;
+        }
+
+        if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
+          console.log("Recovering from media error...");
+          hls.recoverMediaError();
+          return;
+        }
+
         if (data.fatal) {
           switch (data.type) {
             case Hls.ErrorTypes.NETWORK_ERROR:
-              console.warn("Fatal network error in HLS, trying recovery...", data);
-              hls.startLoad();
-              break;
-            case Hls.ErrorTypes.MEDIA_ERROR:
-              console.warn("Fatal media error in HLS, recovering...", data);
-              hls.recoverMediaError();
+              if (retryCount.current < 2) {
+                retryCount.current++;
+                console.log("Network error, retrying HLS load...");
+                hls.startLoad();
+              } else if (!useProxy) {
+                console.log("Switching to proxy mode...");
+                setUseProxy(true);
+              } else {
+                setErrorMsg(
+                  "Não foi possível carregar a transmissão. O servidor de origem pode estar instável."
+                );
+                setIsLoading(false);
+              }
               break;
             default:
-              console.error("Unrecoverable HLS error:", data);
               hls.destroy();
-              setErrorMsg("Não foi possível carregar a transmissão. O servidor pode estar temporariamente indisponível.");
-              setIsLoading(false);
+              hlsRef.current = null;
+              video.src = currentStreamUrl;
+              video.load();
+              safePlay();
               break;
           }
         }
       });
-    } else if (video.canPlayType("application/vnd.apple.mpegurl") && isHls) {
-      // Native Safari HLS
-      video.src = streamUrl;
-      video.addEventListener("loadedmetadata", () => {
-        setIsLoading(false);
-        video.play().catch(() => {
-          video.muted = true;
-          setIsMuted(true);
-          video.play().catch(console.error);
-        });
-      });
     } else {
-      // Direct MP4 / VOD stream
-      video.src = streamUrl;
+      // Direct MP4 / Native video playback (Works for movies, series & Smart TVs)
+      video.src = currentStreamUrl;
       video.load();
-      video.play().catch(() => {
-        video.muted = true;
-        setIsMuted(true);
-        video.play().catch(console.error);
-      });
+      video.onloadeddata = () => {
+        setIsLoading(false);
+        safePlay();
+      };
+      safePlay();
     }
 
     return () => {
@@ -162,27 +209,33 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
         hlsRef.current = null;
       }
     };
-  }, [item, streamUrl, isLive]);
+  }, [item, rawUrl, currentStreamUrl, useProxy, isLive]);
 
-  // Video event listeners (progress, time, duration)
+  // Video listeners
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
 
-    const onPlay = () => setIsPlaying(true);
+    const onPlay = () => {
+      setIsPlaying(true);
+      setIsLoading(false);
+    };
     const onPause = () => setIsPlaying(false);
     const onWaiting = () => setIsLoading(true);
     const onPlaying = () => setIsLoading(false);
-    const onTimeUpdate = () => {
-      setCurrentTime(video.currentTime);
-      if (video.buffered.length > 0) {
-        setBuffered(video.buffered.end(video.buffered.length - 1));
-      }
-    };
+    const onTimeUpdate = () => setCurrentTime(video.currentTime);
     const onDurationChange = () => setDuration(video.duration || 0);
-    const onError = () => {
-      setIsLoading(false);
-      setErrorMsg("Erro ao reproduzir o vídeo. Verifique sua conexão ou tente outro título.");
+
+    const onNativeError = () => {
+      console.warn("Native video error event", video.error);
+      // If direct mode had error and we haven't tried proxy, try proxy
+      if (!useProxy) {
+        console.log("Direct playback error, trying proxy mode...");
+        setUseProxy(true);
+      } else {
+        setIsLoading(false);
+        setErrorMsg("Erro ao reproduzir o vídeo. Verifique sua conexão ou tente outro título.");
+      }
     };
 
     video.addEventListener("play", onPlay);
@@ -191,7 +244,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     video.addEventListener("playing", onPlaying);
     video.addEventListener("timeupdate", onTimeUpdate);
     video.addEventListener("durationchange", onDurationChange);
-    video.addEventListener("error", onError);
+    video.addEventListener("error", onNativeError);
 
     return () => {
       video.removeEventListener("play", onPlay);
@@ -200,9 +253,9 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
       video.removeEventListener("playing", onPlaying);
       video.removeEventListener("timeupdate", onTimeUpdate);
       video.removeEventListener("durationchange", onDurationChange);
-      video.removeEventListener("error", onError);
+      video.removeEventListener("error", onNativeError);
     };
-  }, []);
+  }, [useProxy]);
 
   // Save progress periodically for movies & episodes
   useEffect(() => {
@@ -229,13 +282,13 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     return () => clearInterval(interval);
   }, [item, isLive, currentTime, duration]);
 
-  // Keyboard shortcuts
+  // Keyboard and TV remote shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Ignore if user is typing in channel search
       if (document.activeElement?.tagName === "INPUT") return;
 
-      if (e.code === "Space") {
+      // Enter or Space: Play/Pause
+      if (e.code === "Space" || e.key === "Enter") {
         e.preventDefault();
         togglePlay();
       } else if (e.code === "ArrowRight") {
@@ -256,7 +309,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
       } else if (e.key === "m" || e.key === "M") {
         e.preventDefault();
         toggleMute();
-      } else if (e.key === "Escape") {
+      } else if (e.key === "Escape" || e.key === "Back" || e.key === "GoBack") {
         if (isFullscreen) {
           document.exitFullscreen?.();
         } else {
@@ -300,7 +353,10 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
 
   const seek = (seconds: number) => {
     if (!videoRef.current || isLive) return;
-    videoRef.current.currentTime = Math.max(0, Math.min(duration, videoRef.current.currentTime + seconds));
+    videoRef.current.currentTime = Math.max(
+      0,
+      Math.min(duration, videoRef.current.currentTime + seconds)
+    );
   };
 
   const handleSeekChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -313,9 +369,15 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const toggleFullscreen = () => {
     if (!containerRef.current) return;
     if (!document.fullscreenElement) {
-      containerRef.current.requestFullscreen().then(() => setIsFullscreen(true)).catch(console.error);
+      containerRef.current
+        .requestFullscreen()
+        .then(() => setIsFullscreen(true))
+        .catch(console.error);
     } else {
-      document.exitFullscreen().then(() => setIsFullscreen(false)).catch(console.error);
+      document
+        .exitFullscreen()
+        .then(() => setIsFullscreen(false))
+        .catch(console.error);
     }
   };
 
@@ -333,9 +395,16 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     setAspectRatio(next);
   };
 
+  const toggleProxyMode = () => {
+    setUseProxy((prev) => !prev);
+    setIsLoading(true);
+    setErrorMsg(null);
+  };
+
   const retryPlayback = () => {
     setErrorMsg(null);
     setIsLoading(true);
+    retryCount.current = 0;
     if (videoRef.current) {
       videoRef.current.load();
       videoRef.current.play().catch(console.error);
@@ -371,6 +440,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
         ref={videoRef}
         onClick={togglePlay}
         playsInline
+        preload="auto"
         className={`w-full h-full cursor-pointer ${
           aspectRatio === "contain"
             ? "object-contain"
@@ -382,18 +452,18 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
 
       {/* Loading Spinner */}
       {isLoading && (
-        <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center bg-black/40 backdrop-blur-sm z-20">
-          <div className="w-16 h-16 rounded-full border-4 border-white/20 border-t-red-600 animate-spin mb-4" />
+        <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center bg-black/50 backdrop-blur-sm z-20">
+          <div className="w-16 h-16 rounded-full border-4 border-white/20 border-t-emerald-500 animate-spin mb-4" />
           <p className="text-white text-sm font-semibold tracking-wide drop-shadow animate-pulse">
             Carregando transmissão...
           </p>
         </div>
       )}
 
-      {/* Error State Overlay */}
+      {/* Error Overlay */}
       {errorMsg && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/90 p-6 z-30 text-center">
-          <div className="w-16 h-16 rounded-full bg-red-600/20 text-red-500 flex items-center justify-center mb-4 border border-red-500/30">
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/95 p-6 z-30 text-center">
+          <div className="w-16 h-16 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center mb-4 border border-emerald-500/30">
             <X className="w-8 h-8" />
           </div>
           <h3 className="text-xl font-bold text-white mb-2">Erro na Reprodução</h3>
@@ -401,13 +471,20 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
           <div className="flex flex-wrap items-center justify-center gap-3">
             <button
               onClick={retryPlayback}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-semibold text-sm transition-all shadow-lg shadow-red-600/40"
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-bold text-sm transition-all shadow-lg shadow-emerald-500/30"
             >
               <RefreshCw className="w-4 h-4" />
               <span>Tentar Novamente</span>
             </button>
+            <button
+              onClick={toggleProxyMode}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-emerald-400 font-semibold text-sm transition-all border border-emerald-500/40"
+            >
+              <Zap className="w-4 h-4" />
+              <span>Alternar Modo ({useProxy ? "Direto" : "Proxy"})</span>
+            </button>
             <a
-              href={streamUrl}
+              href={rawUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-semibold text-sm transition-all border border-white/10"
@@ -425,74 +502,89 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
         </div>
       )}
 
-      {/* Unmute prompt if browser forced muted autoplay */}
+      {/* Unmute Prompt */}
       {isMuted && isPlaying && !errorMsg && (
         <button
           onClick={toggleMute}
-          className="absolute top-20 right-6 z-30 flex items-center gap-2 px-4 py-2 rounded-full bg-red-600 text-white font-semibold text-xs shadow-xl animate-bounce hover:bg-red-500 transition-all"
+          className="absolute top-20 right-6 z-30 flex items-center gap-2 px-4 py-2.5 rounded-full bg-emerald-500 text-black font-bold text-xs shadow-xl animate-bounce hover:bg-emerald-400 transition-all"
         >
           <VolumeX className="w-4 h-4" />
           <span>Clique para ativar o áudio</span>
         </button>
       )}
 
-      {/* Top Header Controls Overlay */}
+      {/* Top Header Overlay */}
       <div
-        className={`absolute top-0 inset-x-0 p-4 sm:p-6 bg-gradient-to-b from-black/90 via-black/40 to-transparent flex items-center justify-between z-30 transition-opacity duration-300 ${
+        className={`absolute top-0 inset-x-0 p-4 sm:p-6 lg:px-8 bg-gradient-to-b from-black/95 via-black/50 to-transparent flex items-center justify-between z-30 transition-opacity duration-300 ${
           showControls ? "opacity-100" : "opacity-0 pointer-events-none"
         }`}
       >
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3.5">
           <button
             onClick={onClose}
-            className="p-2.5 rounded-full bg-white/10 hover:bg-red-600 text-white backdrop-blur-md border border-white/10 transition-all"
+            className="p-2.5 rounded-full bg-white/10 hover:bg-emerald-500 hover:text-black text-white backdrop-blur-md border border-white/10 transition-all"
             title="Fechar (Esc)"
           >
             <X className="w-5 h-5" />
           </button>
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2.5">
               <span className="text-white font-bold text-sm sm:text-base md:text-lg drop-shadow">
                 {item.title}
               </span>
               {isLive ? (
-                <span className="px-2 py-0.5 rounded-full bg-red-600 text-white text-[10px] font-extrabold flex items-center gap-1 shadow-md">
-                  <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
+                <span className="px-2.5 py-0.5 rounded-full bg-emerald-500 text-black text-[10px] font-black flex items-center gap-1 shadow-md shadow-emerald-500/25">
+                  <span className="w-1.5 h-1.5 rounded-full bg-black animate-ping" />
                   AO VIVO
                 </span>
               ) : (
                 item.type === "episode" && (
-                  <span className="px-2 py-0.5 rounded-md bg-white/10 text-gray-300 text-xs font-semibold">
+                  <span className="px-2 py-0.5 rounded-md bg-white/15 text-gray-200 text-xs font-semibold">
                     T{(item as any).season} : E{(item as any).episodeNum}
                   </span>
                 )
               )}
             </div>
             {item.category && (
-              <p className="text-xs text-gray-300 font-medium drop-shadow">{item.category}</p>
+              <p className="text-xs text-gray-300 font-medium drop-shadow mt-0.5">
+                {item.category}
+              </p>
             )}
           </div>
         </div>
 
-        {/* Live Channel Switcher Button */}
-        {isLive && liveChannels.length > 0 && (
+        {/* Action Controls in Header */}
+        <div className="flex items-center gap-2">
+          {/* Stream Mode Switcher (Proxy vs Direct) */}
           <button
-            onClick={() => setShowChannelsOverlay(!showChannelsOverlay)}
-            className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white font-medium text-xs sm:text-sm backdrop-blur-md border border-white/10 transition-all"
+            onClick={toggleProxyMode}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-black/60 hover:bg-white/10 text-gray-300 hover:text-emerald-400 text-xs font-medium border border-white/10 transition-all"
+            title="Alternar entre transmissão direta e proxy"
           >
-            <Tv className="w-4 h-4 text-red-500" />
-            <span className="hidden sm:inline">Trocar Canal</span>
-            <ChevronRight className="w-4 h-4" />
+            <Zap className="w-3.5 h-3.5 text-emerald-400" />
+            <span className="hidden sm:inline">{useProxy ? "Modo: Proxy" : "Modo: Direto"}</span>
           </button>
-        )}
+
+          {/* Live Channel Switcher Button */}
+          {isLive && liveChannels.length > 0 && (
+            <button
+              onClick={() => setShowChannelsOverlay(!showChannelsOverlay)}
+              className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white/10 hover:bg-emerald-500/20 text-white font-medium text-xs sm:text-sm backdrop-blur-md border border-white/10 hover:border-emerald-500/40 transition-all"
+            >
+              <Tv className="w-4 h-4 text-emerald-400" />
+              <span className="hidden sm:inline">Trocar Canal</span>
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Slide-out Live Channels Drawer */}
       {showChannelsOverlay && isLive && (
-        <div className="absolute top-0 right-0 bottom-0 w-80 sm:w-96 bg-black/95 backdrop-blur-xl border-l border-white/10 z-40 p-5 flex flex-col shadow-2xl animate-fade-in">
+        <div className="absolute top-0 right-0 bottom-0 w-80 sm:w-96 bg-[#090b10]/95 backdrop-blur-xl border-l border-white/10 z-40 p-5 flex flex-col shadow-2xl animate-fade-in">
           <div className="flex items-center justify-between pb-4 border-b border-white/10">
             <div className="flex items-center gap-2">
-              <Tv className="w-5 h-5 text-red-500" />
+              <Tv className="w-5 h-5 text-emerald-400" />
               <h3 className="font-bold text-white text-base">Canais ao Vivo</h3>
             </div>
             <button
@@ -509,7 +601,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
               placeholder="Buscar canal..."
               value={channelSearch}
               onChange={(e) => setChannelSearch(e.target.value)}
-              className="w-full px-3.5 py-2 rounded-xl bg-surface-light text-white text-xs placeholder-gray-500 border border-white/10 focus:outline-none focus:border-red-500"
+              className="w-full px-3.5 py-2 rounded-xl bg-surface-light text-white text-xs placeholder-gray-500 border border-white/10 focus:outline-none focus:border-emerald-500"
             />
           </div>
 
@@ -523,7 +615,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
                 }}
                 className={`w-full flex items-center gap-3 p-2.5 rounded-xl transition-all text-left ${
                   channel.stream_id === item.id
-                    ? "bg-red-600 text-white font-semibold shadow-md shadow-red-600/30"
+                    ? "bg-emerald-500 text-black font-bold shadow-md shadow-emerald-500/30"
                     : "hover:bg-white/10 text-gray-300 hover:text-white"
                 }`}
               >
@@ -538,12 +630,12 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
                   />
                 ) : (
                   <div className="w-8 h-8 rounded-lg bg-surface flex items-center justify-center flex-shrink-0">
-                    <Tv className="w-4 h-4 text-red-400" />
+                    <Tv className="w-4 h-4 text-emerald-400" />
                   </div>
                 )}
                 <span className="text-xs line-clamp-1 flex-1">{channel.name}</span>
                 {channel.stream_id === item.id && (
-                  <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
+                  <span className="w-2 h-2 rounded-full bg-black animate-pulse" />
                 )}
               </button>
             ))}
@@ -553,13 +645,13 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
 
       {/* Bottom Controls Bar Overlay */}
       <div
-        className={`absolute bottom-0 inset-x-0 p-4 sm:p-6 bg-gradient-to-t from-black/95 via-black/60 to-transparent z-30 transition-opacity duration-300 ${
+        className={`absolute bottom-0 inset-x-0 p-4 sm:p-6 lg:px-8 pb-5 sm:pb-7 bg-gradient-to-t from-black/95 via-black/60 to-transparent z-30 transition-opacity duration-300 ${
           showControls ? "opacity-100" : "opacity-0 pointer-events-none"
         }`}
       >
-        {/* Progress Seek Bar (VOD / Movies / Episodes) */}
+        {/* Progress Seek Bar */}
         {!isLive && (
-          <div className="relative mb-3 group/seek flex items-center">
+          <div className="relative mb-3.5 group/seek flex items-center">
             <input
               type="range"
               min={0}
@@ -569,7 +661,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
               onChange={handleSeekChange}
               className="w-full h-1.5 group-hover/seek:h-2.5 transition-all bg-white/20 rounded-full appearance-none relative z-10"
               style={{
-                background: `linear-gradient(to right, #e50914 0%, #e50914 ${
+                background: `linear-gradient(to right, #10b981 0%, #10b981 ${
                   duration > 0 ? (currentTime / duration) * 100 : 0
                 }%, rgba(255,255,255,0.2) ${
                   duration > 0 ? (currentTime / duration) * 100 : 0
@@ -585,10 +677,14 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
           <div className="flex items-center gap-3 sm:gap-4">
             <button
               onClick={togglePlay}
-              className="p-3 rounded-full bg-red-600 hover:bg-red-500 text-white shadow-lg shadow-red-600/40 transition-all transform hover:scale-110 active:scale-95"
+              className="p-3 rounded-full bg-emerald-500 hover:bg-emerald-400 text-black shadow-lg shadow-emerald-500/30 transition-all transform hover:scale-110 active:scale-95"
               title={isPlaying ? "Pausar (Espaço)" : "Reproduzir (Espaço)"}
             >
-              {isPlaying ? <Pause className="w-5 h-5 fill-white" /> : <Play className="w-5 h-5 fill-white" />}
+              {isPlaying ? (
+                <Pause className="w-5 h-5 fill-black text-black" />
+              ) : (
+                <Play className="w-5 h-5 fill-black text-black" />
+              )}
             </button>
 
             {!isLive && (
@@ -618,7 +714,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
                 title={isMuted ? "Desmutar (M)" : "Mutar (M)"}
               >
                 {isMuted || volume === 0 ? (
-                  <VolumeX className="w-5 h-5 text-red-500" />
+                  <VolumeX className="w-5 h-5 text-emerald-400" />
                 ) : (
                   <Volume2 className="w-5 h-5" />
                 )}
@@ -632,7 +728,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
                 onChange={(e) => changeVolume(parseFloat(e.target.value))}
                 className="w-16 sm:w-20 h-1 bg-white/30 rounded-full appearance-none transition-all"
                 style={{
-                  background: `linear-gradient(to right, #e50914 ${
+                  background: `linear-gradient(to right, #10b981 ${
                     isMuted ? 0 : volume * 100
                   }%, rgba(255,255,255,0.2) ${isMuted ? 0 : volume * 100}%)`,
                 }}
@@ -642,8 +738,8 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
             {/* Time Display */}
             <div className="text-xs font-medium text-gray-300 ml-1">
               {isLive ? (
-                <div className="flex items-center gap-1.5 text-red-500 font-bold">
-                  <span className="w-2 h-2 rounded-full bg-red-600 animate-pulse" />
+                <div className="flex items-center gap-1.5 text-emerald-400 font-bold">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                   <span>TRANSMISSÃO AO VIVO</span>
                 </div>
               ) : (
@@ -656,19 +752,17 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
 
           {/* Right Controls: Next Ep, Speed, Aspect, Fullscreen */}
           <div className="flex items-center gap-2 sm:gap-3">
-            {/* Next Episode (for Series) */}
             {(item as any).nextEpisode && onPlayNext && (
               <button
                 onClick={() => onPlayNext((item as any).nextEpisode)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-semibold transition-all border border-white/10"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-emerald-500/20 text-white text-xs font-semibold transition-all border border-white/10 hover:border-emerald-500/40"
                 title="Próximo Episódio"
               >
-                <SkipForward className="w-4 h-4" />
+                <SkipForward className="w-4 h-4 text-emerald-400" />
                 <span className="hidden sm:inline">Próximo Ep</span>
               </button>
             )}
 
-            {/* Speed Selector (VOD) */}
             {!isLive && (
               <button
                 onClick={cycleSpeed}
@@ -679,16 +773,18 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
               </button>
             )}
 
-            {/* Aspect Ratio */}
             <button
               onClick={cycleAspect}
               className="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-medium transition-all border border-white/10 hidden sm:block"
               title="Ajuste de Tela"
             >
-              {aspectRatio === "contain" ? "Original" : aspectRatio === "cover" ? "Zoom" : "Esticar"}
+              {aspectRatio === "contain"
+                ? "Original"
+                : aspectRatio === "cover"
+                ? "Zoom"
+                : "Esticar"}
             </button>
 
-            {/* Fullscreen Toggle */}
             <button
               onClick={toggleFullscreen}
               className="p-2 text-gray-300 hover:text-white transition-colors"
