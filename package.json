@@ -2,6 +2,19 @@
   "name": "full-tv-streams",
   "version": "1.0.0",
   "private": true,
+  "description": "Full TV Streams para Smart TV Samsung",
+  "appName": "Full TV Streams",
+  "packageType": "mods",
+  "websiteURL": "https://full-tv-streams.vercel.app",
+  "main": "public/tizen/inject.js",
+  "keys": [
+    "MediaPlayPause",
+    "MediaPlay",
+    "MediaPause",
+    "MediaStop",
+    "MediaFastForward",
+    "MediaRewind"
+  ],
   "scripts": {
     "dev": "next dev",
     "build": "next build",
