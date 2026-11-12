@@ -42,6 +42,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<Hls | null>(null);
+  const activeChannelRef = useRef<HTMLButtonElement | null>(null);
 
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
@@ -75,6 +76,15 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
 
   const rawUrl = item?.streamUrl || "";
   const isLive = item?.type === "live";
+
+  // Auto-scroll to active channel when channel drawer opens
+  useEffect(() => {
+    if (showChannelsOverlay && activeChannelRef.current) {
+      setTimeout(() => {
+        activeChannelRef.current?.scrollIntoView({ block: "center", behavior: "smooth" });
+      }, 100);
+    }
+  }, [showChannelsOverlay]);
 
   // Build the active URL (Direct or through stream-proxy)
   const currentStreamUrl = useProxy
@@ -125,9 +135,14 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
 
     const isHls = rawUrl.includes(".m3u8") || isLive;
 
-    // Helper for safe play (handles browser autoplay blocking)
+    // Helper for safe play (handles browser autoplay blocking without breaking sound)
     const safePlay = () => {
       if (!video) return;
+
+      // Preserve user volume and mute preference
+      video.muted = isMuted;
+      video.volume = volume;
+
       const playPromise = video.play();
       if (playPromise !== undefined) {
         playPromise
@@ -136,30 +151,44 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
             setIsPlaying(true);
           })
           .catch((err) => {
-            console.warn("Autoplay was blocked or failed, attempting muted autoplay:", err);
-            video.muted = true;
-            setIsMuted(true);
-            video
-              .play()
-              .then(() => {
-                setIsLoading(false);
-                setIsPlaying(true);
-              })
-              .catch((e) => {
-                console.error("Muted play also failed:", e);
-                setIsLoading(false);
-              });
+            // ONLY fallback to muted if the browser policy explicitly blocked sound
+            if (err.name === "NotAllowedError") {
+              console.warn("Autoplay with sound blocked by browser policy, attempting muted:", err);
+              video.muted = true;
+              setIsMuted(true);
+              video
+                .play()
+                .then(() => {
+                  setIsLoading(false);
+                  setIsPlaying(true);
+                })
+                .catch((e) => {
+                  console.error("Muted play also failed:", e);
+                  setIsLoading(false);
+                });
+            } else {
+              // For AbortError or loading buffer, do NOT force mute
+              console.log("Play interrupted or pending buffer frame:", err.name);
+            }
           });
       }
     };
 
     if (isHls && Hls.isSupported()) {
+      // Ultra-fast channel zapping configuration:
+      // Start playback as soon as the first fragment arrives without waiting for 30s buffer!
       const hls = new Hls({
         enableWorker: true,
         lowLatencyMode: true,
-        backBufferLength: 60,
-        maxBufferLength: 30,
-        maxMaxBufferLength: 60,
+        startFragPrefetch: true,
+        maxBufferLength: 8,
+        maxMaxBufferLength: 16,
+        maxBufferSize: 8 * 1024 * 1024,
+        liveSyncDurationCount: 1,
+        liveMaxLatencyDurationCount: 3,
+        startLevel: -1,
+        fragLoadingTimeOut: 12000,
+        manifestLoadingTimeOut: 10000,
         xhrSetup: (xhr, url) => {
           xhr.withCredentials = false;
         },
@@ -593,11 +622,12 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
         </div>
       )}
 
-      {/* Unmute Prompt */}
+      {/* Unmute Prompt (posicionado no canto inferior esquerdo para nunca colidir com a aba de canais) */}
       {isMuted && isPlaying && !errorMsg && (
         <button
           onClick={toggleMute}
-          className="absolute top-20 right-6 z-30 flex items-center gap-2 px-4 py-2.5 rounded-full bg-emerald-500 text-black font-bold text-xs shadow-xl animate-bounce hover:bg-emerald-400 transition-all"
+          className="absolute bottom-24 left-6 z-30 flex items-center gap-2 px-4 py-2.5 rounded-full bg-emerald-500 text-black font-bold text-xs shadow-2xl animate-bounce hover:bg-emerald-400 transition-all border-2 border-black/30 active:scale-95"
+          title="Ativar Som"
         >
           <VolumeX className="w-4 h-4" />
           <span>Clique para ativar o áudio</span>
@@ -660,78 +690,144 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
           {isLive && liveChannels.length > 0 && (
             <button
               onClick={() => setShowChannelsOverlay(!showChannelsOverlay)}
-              className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white/10 hover:bg-emerald-500/20 text-white font-medium text-xs sm:text-sm backdrop-blur-md border border-white/10 hover:border-emerald-500/40 transition-all"
+              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl font-semibold text-xs sm:text-sm backdrop-blur-md border transition-all ${
+                showChannelsOverlay
+                  ? "bg-emerald-500 text-black border-emerald-400 shadow-lg shadow-emerald-500/30"
+                  : "bg-white/10 hover:bg-emerald-500/20 text-white border-white/10 hover:border-emerald-500/40"
+              }`}
             >
-              <Tv className="w-4 h-4 text-emerald-400" />
-              <span className="hidden sm:inline">Trocar Canal</span>
-              <ChevronRight className="w-4 h-4" />
+              <Tv className="w-4 h-4" />
+              <span>Trocar Canal</span>
+              <ChevronRight
+                className={`w-4 h-4 transition-transform duration-200 ${
+                  showChannelsOverlay ? "rotate-90" : ""
+                }`}
+              />
             </button>
           )}
         </div>
       </div>
 
-      {/* Slide-out Live Channels Drawer */}
+      {/* Slide-out Live Channels Drawer (Aba ampla com espaçamento e sem fechar ao trocar) */}
       {showChannelsOverlay && isLive && (
-        <div className="absolute top-0 right-0 bottom-0 w-80 sm:w-96 bg-[#090b10]/95 backdrop-blur-xl border-l border-white/10 z-40 p-5 flex flex-col shadow-2xl animate-fade-in">
-          <div className="flex items-center justify-between pb-4 border-b border-white/10">
-            <div className="flex items-center gap-2">
-              <Tv className="w-5 h-5 text-emerald-400" />
-              <h3 className="font-bold text-white text-base">Canais ao Vivo</h3>
-            </div>
-            <button
-              onClick={() => setShowChannelsOverlay(false)}
-              className="p-1.5 rounded-full hover:bg-white/10 text-gray-400 hover:text-white"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
+        <>
+          {/* Backdrop sutil clicável para fechar */}
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-[2px] z-40 transition-opacity"
+            onClick={() => setShowChannelsOverlay(false)}
+          />
 
-          <div className="my-3">
-            <input
-              type="text"
-              placeholder="Buscar canal..."
-              value={channelSearch}
-              onChange={(e) => setChannelSearch(e.target.value)}
-              className="w-full px-3.5 py-2 rounded-xl bg-surface-light text-white text-xs placeholder-gray-500 border border-white/10 focus:outline-none focus:border-emerald-500"
-            />
-          </div>
-
-          <div className="flex-1 overflow-y-auto space-y-1.5 pr-1">
-            {filteredChannels.map((channel) => (
+          <div className="absolute top-0 right-0 bottom-0 w-[320px] sm:w-[420px] md:w-[460px] bg-[#0a0d14]/98 backdrop-blur-2xl border-l border-emerald-500/20 z-50 p-5 sm:p-6 flex flex-col shadow-2xl animate-fade-in">
+            {/* Header do Guia de Canais */}
+            <div className="flex items-center justify-between pb-4 border-b border-white/10">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                  <Tv className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-white text-base sm:text-lg">Guia de Canais</h3>
+                  <p className="text-xs text-gray-400">
+                    {filteredChannels.length} canais disponíveis
+                  </p>
+                </div>
+              </div>
               <button
-                key={channel.stream_id}
-                onClick={() => {
-                  onSwitchChannel?.(channel);
-                  setShowChannelsOverlay(false);
-                }}
-                className={`w-full flex items-center gap-3 p-2.5 rounded-xl transition-all text-left ${
-                  channel.stream_id === item.id
-                    ? "bg-emerald-500 text-black font-bold shadow-md shadow-emerald-500/30"
-                    : "hover:bg-white/10 text-gray-300 hover:text-white"
-                }`}
+                onClick={() => setShowChannelsOverlay(false)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/10 hover:bg-emerald-500 hover:text-black text-gray-300 font-bold text-xs transition-colors"
+                title="Fechar Guia"
               >
-                {channel.stream_icon ? (
-                  <img
-                    src={channel.stream_icon}
-                    alt={channel.name}
-                    className="w-8 h-8 rounded-lg object-contain bg-black/50 p-1 flex-shrink-0"
-                    onError={(e) => {
-                      (e.target as HTMLElement).style.display = "none";
-                    }}
-                  />
-                ) : (
-                  <div className="w-8 h-8 rounded-lg bg-surface flex items-center justify-center flex-shrink-0">
-                    <Tv className="w-4 h-4 text-emerald-400" />
-                  </div>
-                )}
-                <span className="text-xs line-clamp-1 flex-1">{channel.name}</span>
-                {channel.stream_id === item.id && (
-                  <span className="w-2 h-2 rounded-full bg-black animate-pulse" />
-                )}
+                <span>Fechar</span>
+                <X className="w-4 h-4" />
               </button>
-            ))}
+            </div>
+
+            {/* Barra de Pesquisa de Canais */}
+            <div className="my-4 relative">
+              <input
+                type="text"
+                placeholder="Buscar por nome ou número..."
+                value={channelSearch}
+                onChange={(e) => setChannelSearch(e.target.value)}
+                className="w-full px-4 py-2.5 pr-8 rounded-xl bg-surface-light text-white text-xs sm:text-sm placeholder-gray-500 border border-white/10 focus:outline-none focus:border-emerald-500 transition-colors"
+              />
+              {channelSearch && (
+                <button
+                  onClick={() => setChannelSearch("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
+            {/* Lista Espaçosa de Canais */}
+            <div className="flex-1 overflow-y-auto space-y-2.5 pr-1.5 custom-scrollbar">
+              {filteredChannels.map((channel) => {
+                const isCurrent = channel.stream_id === item.id;
+                return (
+                  <button
+                    key={channel.stream_id}
+                    ref={isCurrent ? activeChannelRef : null}
+                    onClick={() => {
+                      // Garante que o áudio não seja forçado ao mudo na troca
+                      if (videoRef.current && !isMuted) {
+                        videoRef.current.muted = false;
+                      }
+                      onSwitchChannel?.(channel);
+                      // NÃO FECHA A ABA: Permanece aberta para o usuário continuar navegando!
+                    }}
+                    className={`w-full flex items-center gap-3.5 p-3 sm:p-3.5 rounded-2xl transition-all text-left group ${
+                      isCurrent
+                        ? "bg-emerald-500/15 border-2 border-emerald-500 shadow-lg shadow-emerald-500/20"
+                        : "bg-white/[0.04] hover:bg-white/10 border border-white/5 hover:border-emerald-500/30"
+                    }`}
+                  >
+                    {/* Logo do Canal */}
+                    <div className="w-12 h-12 rounded-xl bg-black/60 border border-white/10 p-1 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                      {channel.stream_icon ? (
+                        <img
+                          src={channel.stream_icon}
+                          alt={channel.name}
+                          className="w-full h-full object-contain"
+                          onError={(e) => {
+                            (e.target as HTMLElement).style.display = "none";
+                          }}
+                        />
+                      ) : (
+                        <Tv className="w-5 h-5 text-emerald-400" />
+                      )}
+                    </div>
+
+                    {/* Informações do Canal */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-1">
+                        <span
+                          className={`text-xs sm:text-sm font-semibold line-clamp-1 ${
+                            isCurrent ? "text-emerald-300 font-bold" : "text-gray-200 group-hover:text-white"
+                          }`}
+                        >
+                          {channel.name}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 mt-1">
+                        {isCurrent ? (
+                          <span className="flex items-center gap-1.5 text-[10px] font-black uppercase text-emerald-400 bg-emerald-500/20 px-2 py-0.5 rounded-md">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                            Reproduzindo Agora
+                          </span>
+                        ) : (
+                          <span className="text-[11px] text-gray-500 font-mono">
+                            Canal #{channel.num || channel.stream_id}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
           </div>
-        </div>
+        </>
       )}
 
       {/* Bottom Controls Bar Overlay */}
