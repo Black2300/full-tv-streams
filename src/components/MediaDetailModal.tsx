@@ -59,9 +59,16 @@ export const MediaDetailModal: React.FC<MediaDetailModalProps> = ({
         .then((data) => {
           setSeriesData(data);
           if (data.episodes) {
-            const seasonKeys = Object.keys(data.episodes);
+            const seasonKeys = Object.keys(data.episodes).sort((a, b) => {
+              const numA = parseInt(a.replace(/\D/g, ""), 10) || 0;
+              const numB = parseInt(b.replace(/\D/g, ""), 10) || 0;
+              return numA - numB;
+            });
             if (seasonKeys.length > 0) {
-              setActiveSeason(seasonKeys[0]);
+              const hasSeason1 = seasonKeys.find(
+                (k) => (parseInt(k.replace(/\D/g, ""), 10) || 0) === 1
+              );
+              setActiveSeason(hasSeason1 || seasonKeys[0]);
             }
           }
         })

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import {
   ArrowLeft,
   Play,
@@ -12,6 +12,8 @@ import {
   Clock,
   Calendar,
   Layers,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import {
   VodStream,
@@ -36,6 +38,39 @@ interface MediaDetailViewProps {
   onPlay: (playable: PlayableItem) => void;
 }
 
+// Utilitário para extrair com segurança o número da temporada
+function extractSeasonNumber(key: string | number): number {
+  if (typeof key === "number") return key;
+  const match = String(key).match(/\d+/);
+  return match ? parseInt(match[0], 10) : 0;
+}
+
+// Utilitário para extrair o número do episódio
+function extractEpisodeNumber(ep: EpisodeInfo): number {
+  if (typeof ep.episode_num === "number") return ep.episode_num;
+  const match = String(ep.episode_num || "").match(/\d+/);
+  return match ? parseInt(match[0], 10) : 0;
+}
+
+// Normaliza coleções de episódios (lida tanto com Arrays quanto com Objetos associativos do PHP)
+function normalizeEpisodes(data: any): EpisodeInfo[] {
+  if (!data) return [];
+  if (Array.isArray(data)) return data;
+  if (typeof data === "object") {
+    return Object.values(data).filter(Boolean) as EpisodeInfo[];
+  }
+  return [];
+}
+
+// Formata o nome amigável da temporada
+function formatSeasonTitle(key: string): string {
+  const num = extractSeasonNumber(key);
+  if (num === 0 && (key === "0" || key.toLowerCase().includes("esp"))) {
+    return "Especiais";
+  }
+  return `Temporada ${num || key}`;
+}
+
 export const MediaDetailView: React.FC<MediaDetailViewProps> = ({
   item,
   type,
@@ -46,10 +81,46 @@ export const MediaDetailView: React.FC<MediaDetailViewProps> = ({
   const [activeSeason, setActiveSeason] = useState<string>("1");
   const [loadingSeries, setLoadingSeries] = useState(false);
   const [favorite, setFavorite] = useState(false);
+  const seasonScrollRef = useRef<HTMLDivElement>(null);
 
   const isSeries = type === "series";
   const id = item ? (isSeries ? (item as SeriesItem).series_id : (item as VodStream).stream_id) : 0;
 
+  // Lista ordenada numericamente de todas as temporadas disponíveis
+  const seasonList = useMemo(() => {
+    if (!seriesData?.episodes) return [];
+    let keys: string[] = [];
+    if (Array.isArray(seriesData.episodes)) {
+      keys = seriesData.episodes.map((_, idx) => String(idx + 1));
+    } else if (typeof seriesData.episodes === "object" && seriesData.episodes !== null) {
+      keys = Object.keys(seriesData.episodes);
+    }
+
+    return keys.sort((a, b) => {
+      const numA = extractSeasonNumber(a);
+      const numB = extractSeasonNumber(b);
+      if (numA !== numB) return numA - numB;
+      return a.localeCompare(b, undefined, { numeric: true });
+    });
+  }, [seriesData]);
+
+  // Contagem total de episódios em toda a série
+  const totalEpisodesCount = useMemo(() => {
+    if (!seriesData?.episodes) return 0;
+    let total = 0;
+    if (Array.isArray(seriesData.episodes)) {
+      seriesData.episodes.forEach((eps) => {
+        total += normalizeEpisodes(eps).length;
+      });
+    } else if (typeof seriesData.episodes === "object") {
+      Object.values(seriesData.episodes).forEach((eps) => {
+        total += normalizeEpisodes(eps).length;
+      });
+    }
+    return total;
+  }, [seriesData]);
+
+  // Carrega informações completas da série via API
   useEffect(() => {
     if (!item) return;
     const favKey = `${type}_${id}`;
@@ -61,9 +132,25 @@ export const MediaDetailView: React.FC<MediaDetailViewProps> = ({
         .then((data) => {
           setSeriesData(data);
           if (data.episodes) {
-            const seasonKeys = Object.keys(data.episodes);
-            if (seasonKeys.length > 0) {
-              setActiveSeason(seasonKeys[0]);
+            let keys: string[] = [];
+            if (Array.isArray(data.episodes)) {
+              keys = data.episodes.map((_, idx) => String(idx + 1));
+            } else if (typeof data.episodes === "object" && data.episodes !== null) {
+              keys = Object.keys(data.episodes);
+            }
+
+            // Ordena numericamente para que a 1ª temporada seja sempre a inicial
+            keys.sort((a, b) => {
+              const numA = extractSeasonNumber(a);
+              const numB = extractSeasonNumber(b);
+              if (numA !== numB) return numA - numB;
+              return a.localeCompare(b, undefined, { numeric: true });
+            });
+
+            if (keys.length > 0) {
+              // Prefere Temporada 1 se existir, senão pega a primeira
+              const hasSeason1 = keys.find((k) => extractSeasonNumber(k) === 1);
+              setActiveSeason(hasSeason1 || keys[0]);
             }
           }
         })
@@ -71,6 +158,52 @@ export const MediaDetailView: React.FC<MediaDetailViewProps> = ({
         .finally(() => setLoadingSeries(false));
     }
   }, [item, id, isSeries, type]);
+
+  // Garante que a temporada ativa seja válida
+  useEffect(() => {
+    if (seasonList.length > 0 && !seasonList.includes(activeSeason)) {
+      const match = seasonList.find((k) => extractSeasonNumber(k) === extractSeasonNumber(activeSeason));
+      if (match) {
+        setActiveSeason(match);
+      } else {
+        const hasSeason1 = seasonList.find((k) => extractSeasonNumber(k) === 1);
+        setActiveSeason(hasSeason1 || seasonList[0]);
+      }
+    }
+  }, [seasonList, activeSeason]);
+
+  // Lista de episódios da temporada ativa, normalizada e ordenada numericamente
+  const episodes = useMemo(() => {
+    if (!seriesData?.episodes) return [];
+
+    let rawList: any = null;
+    if (Array.isArray(seriesData.episodes)) {
+      const idx = extractSeasonNumber(activeSeason) - 1;
+      rawList = seriesData.episodes[idx >= 0 ? idx : 0];
+    } else {
+      rawList = seriesData.episodes[activeSeason];
+      if (!rawList) {
+        // Fallback por número correspondente
+        const targetNum = extractSeasonNumber(activeSeason);
+        for (const [k, v] of Object.entries(seriesData.episodes)) {
+          if (extractSeasonNumber(k) === targetNum) {
+            rawList = v;
+            break;
+          }
+        }
+      }
+    }
+
+    const list = normalizeEpisodes(rawList);
+
+    // Ordena do primeiro episódio ao último
+    return [...list].sort((a, b) => {
+      const numA = extractEpisodeNumber(a);
+      const numB = extractEpisodeNumber(b);
+      if (numA !== numB) return numA - numB;
+      return (Number(a.id) || 0) - (Number(b.id) || 0);
+    });
+  }, [seriesData, activeSeason]);
 
   // Tecla Voltar (Return / 10009 / Esc / Back) do controle remoto da TV volta ao catálogo
   useEffect(() => {
@@ -102,13 +235,13 @@ export const MediaDetailView: React.FC<MediaDetailViewProps> = ({
     };
   }, [onBack]);
 
-  // Foco inicial automático no botão de Play na TV
+  // Foco inicial automático no botão primário
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
     const timer = setTimeout(() => {
       const primaryBtn =
         document.querySelector<HTMLElement>('button[data-tv-primary="true"]') ||
-        document.querySelector<HTMLElement>('main button');
+        document.querySelector<HTMLElement>("main button");
       if (primaryBtn) {
         primaryBtn.focus();
       }
@@ -184,30 +317,37 @@ export const MediaDetailView: React.FC<MediaDetailViewProps> = ({
 
   const handlePlayEpisode = (episode: EpisodeInfo, allSeasonEps: EpisodeInfo[], epIndex: number) => {
     const next = allSeasonEps[epIndex + 1];
+    const seasonNum = extractSeasonNumber(activeSeason);
+    const epNum = extractEpisodeNumber(episode);
+
     onPlay({
       type: "episode",
       id: episode.id,
       seriesId: Number(id),
       seriesTitle: title,
-      title: episode.title || `Episódio ${episode.episode_num}`,
-      season: Number(activeSeason),
-      episodeNum: episode.episode_num,
+      title: episode.title || `Episódio ${epNum}`,
+      season: seasonNum,
+      episodeNum: epNum,
       poster: formatImageUrl(episode.info?.movie_image || episode.info?.cover_big || cleanPoster),
       plot: episode.info?.plot || plot,
       streamUrl: getEpisodeStreamUrl(episode.id, episode.container_extension || "mp4"),
       nextEpisode: next
         ? {
             id: next.id,
-            title: next.title || `Episódio ${next.episode_num}`,
-            season: Number(activeSeason),
-            episodeNum: next.episode_num,
+            title: next.title || `Episódio ${extractEpisodeNumber(next)}`,
+            season: seasonNum,
+            episodeNum: extractEpisodeNumber(next),
           }
         : undefined,
     });
   };
 
-  const episodes = seriesData?.episodes ? seriesData.episodes[activeSeason] || [] : [];
-  const seasonList = seriesData?.episodes ? Object.keys(seriesData.episodes) : [];
+  const scrollSeasons = (direction: "left" | "right") => {
+    if (seasonScrollRef.current) {
+      const scrollAmount = direction === "left" ? -280 : 280;
+      seasonScrollRef.current.scrollBy({ left: scrollAmount, behavior: "smooth" });
+    }
+  };
 
   return (
     <div className="min-h-screen py-4 sm:py-6 px-4 sm:px-6 lg:px-10 max-w-[1600px] mx-auto animate-fade-in select-none">
@@ -215,7 +355,7 @@ export const MediaDetailView: React.FC<MediaDetailViewProps> = ({
       <div className="mb-5 flex items-center justify-between">
         <button
           onClick={onBack}
-          className="flex items-center gap-2.5 px-4 py-2.5 rounded-xl bg-surface-light hover:bg-white/10 text-gray-200 hover:text-white border border-white/10 transition-all focus:outline-none focus:ring-2 focus:ring-emerald-400 group"
+          className="flex items-center gap-2.5 px-4 py-2.5 rounded-xl bg-surface-light hover:bg-white/10 text-gray-200 hover:text-white border border-white/10 transition-all focus:outline-none focus:ring-2 focus:ring-emerald-400 group cursor-pointer"
         >
           <ArrowLeft className="w-4 h-4 text-emerald-400 group-hover:-translate-x-1 transition-transform" />
           <span className="text-xs sm:text-sm font-bold">Voltar ao Catálogo</span>
@@ -250,6 +390,16 @@ export const MediaDetailView: React.FC<MediaDetailViewProps> = ({
               <span className="px-3 py-1 rounded-lg bg-emerald-500 text-[11px] font-black text-black uppercase tracking-wider shadow">
                 {isSeries ? "Série Completa" : "Filme"}
               </span>
+
+              {isSeries && seasonList.length > 0 && (
+                <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-xs font-bold backdrop-blur-md">
+                  <Layers className="w-3.5 h-3.5" />
+                  <span>
+                    {seasonList.length} {seasonList.length === 1 ? "Temporada" : "Temporadas"}
+                    {totalEpisodesCount > 0 && ` • ${totalEpisodesCount} episódios`}
+                  </span>
+                </span>
+              )}
 
               {rating && Number(rating) > 0 && (
                 <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-black/70 backdrop-blur-md text-xs font-bold text-amber-400 border border-white/10">
@@ -300,7 +450,7 @@ export const MediaDetailView: React.FC<MediaDetailViewProps> = ({
 
               <button
                 onClick={toggleFav}
-                className={`flex items-center gap-2 px-5 py-3.5 rounded-2xl text-sm font-semibold border transition-all focus:outline-none focus:ring-2 focus:ring-emerald-400 ${
+                className={`flex items-center gap-2 px-5 py-3.5 rounded-2xl text-sm font-semibold border transition-all focus:outline-none focus:ring-2 focus:ring-emerald-400 cursor-pointer ${
                   favorite
                     ? "bg-emerald-500/20 border-emerald-500/40 text-emerald-400"
                     : "bg-surface-light hover:bg-white/10 border-white/10 text-gray-200"
@@ -358,108 +508,194 @@ export const MediaDetailView: React.FC<MediaDetailViewProps> = ({
         </div>
       </div>
 
-      {/* Temporadas e Episódios (Para Séries) */}
+      {/* Seção Completa de Temporadas e Episódios (Para Séries) */}
       {isSeries && (
         <div className="bg-surface/80 border border-white/5 rounded-2xl p-6 sm:p-7 space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/10">
-            <h3 className="text-lg sm:text-xl font-bold text-white flex items-center gap-2.5">
-              <Tv className="w-5 h-5 text-emerald-400" />
-              <span>Temporadas e Episódios</span>
-            </h3>
+          <div className="flex flex-col gap-4 pb-4 border-b border-white/10">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg sm:text-xl font-bold text-white flex items-center gap-2.5">
+                <Tv className="w-5 h-5 text-emerald-400" />
+                <span>Temporadas e Episódios</span>
+              </h3>
 
-            {/* Abas de Temporada */}
-            {seasonList.length > 1 && (
-              <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
-                {seasonList.map((season) => (
+              {seasonList.length > 0 && (
+                <span className="text-xs text-gray-400 font-medium">
+                  {seasonList.length} {seasonList.length === 1 ? "temporada disponível" : "temporadas disponíveis"}
+                </span>
+              )}
+            </div>
+
+            {/* Abas de Temporada com Rolagem Suave e Navegação TV */}
+            {seasonList.length > 0 && (
+              <div className="relative flex items-center gap-2">
+                {/* Botão Anterior (para listas longas de temporadas) */}
+                {seasonList.length > 5 && (
                   <button
-                    key={season}
-                    onClick={() => setActiveSeason(season)}
-                    className={`flex-shrink-0 px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold whitespace-nowrap transition-all focus:outline-none focus:ring-2 focus:ring-emerald-400 ${
-                      activeSeason === season
-                        ? "bg-emerald-500 text-black font-extrabold shadow-lg shadow-emerald-500/25"
-                        : "bg-surface-light text-gray-300 hover:bg-white/10 border border-white/5"
-                    }`}
+                    onClick={() => scrollSeasons("left")}
+                    title="Temporadas anteriores"
+                    className="hidden sm:flex items-center justify-center w-8 h-8 rounded-lg bg-surface-light hover:bg-white/10 text-gray-300 hover:text-white border border-white/5 flex-shrink-0 transition-colors focus:ring-2 focus:ring-emerald-400"
                   >
-                    Temporada {season}
+                    <ChevronLeft className="w-4 h-4" />
                   </button>
-                ))}
+                )}
+
+                {/* Container horizontal com auto-scroll ao focar no controle da TV */}
+                <div
+                  ref={seasonScrollRef}
+                  className="flex items-center gap-2.5 overflow-x-auto no-scrollbar py-1 scroll-smooth w-full"
+                >
+                  {seasonList.map((season) => {
+                    const isActive = activeSeason === season;
+                    // Quantidade de episódios nesta temporada
+                    let sEpCount = 0;
+                    if (seriesData?.episodes) {
+                      const raw = Array.isArray(seriesData.episodes)
+                        ? seriesData.episodes[extractSeasonNumber(season) - 1]
+                        : seriesData.episodes[season];
+                      sEpCount = normalizeEpisodes(raw).length;
+                    }
+
+                    return (
+                      <button
+                        key={season}
+                        onClick={() => setActiveSeason(season)}
+                        onFocus={(e) => {
+                          e.currentTarget.scrollIntoView({
+                            behavior: "smooth",
+                            block: "nearest",
+                            inline: "center",
+                          });
+                        }}
+                        className={`flex-shrink-0 flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition-all cursor-pointer focus:outline-none focus:ring-4 focus:ring-emerald-400 focus:scale-105 ${
+                          isActive
+                            ? "bg-emerald-500 text-black font-extrabold shadow-lg shadow-emerald-500/30 scale-105 ring-2 ring-emerald-300"
+                            : "bg-surface-light text-gray-300 hover:bg-white/10 hover:text-white border border-white/5"
+                        }`}
+                      >
+                        <span>{formatSeasonTitle(season)}</span>
+                        {sEpCount > 0 && (
+                          <span
+                            className={`text-[10px] px-1.5 py-0.5 rounded-md font-bold ${
+                              isActive
+                                ? "bg-black/20 text-black"
+                                : "bg-white/10 text-gray-400"
+                            }`}
+                          >
+                            {sEpCount} eps
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Botão Próximo (para listas longas de temporadas) */}
+                {seasonList.length > 5 && (
+                  <button
+                    onClick={() => scrollSeasons("right")}
+                    title="Próximas temporadas"
+                    className="hidden sm:flex items-center justify-center w-8 h-8 rounded-lg bg-surface-light hover:bg-white/10 text-gray-300 hover:text-white border border-white/5 flex-shrink-0 transition-colors focus:ring-2 focus:ring-emerald-400"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                )}
               </div>
             )}
           </div>
 
+          {/* Lista de Episódios */}
           {loadingSeries ? (
-            <div className="py-16 flex flex-col items-center justify-center text-gray-400">
-              <div className="w-10 h-10 rounded-full border-2 border-white/20 border-t-emerald-500 animate-spin mb-3" />
-              <span className="text-xs sm:text-sm">Carregando episódios...</span>
+            <div className="py-20 flex flex-col items-center justify-center text-gray-400">
+              <div className="w-12 h-12 rounded-full border-3 border-white/10 border-t-emerald-500 animate-spin mb-4" />
+              <span className="text-sm font-semibold">Carregando episódios e temporadas...</span>
+              <span className="text-xs text-gray-500 mt-1">Buscando catálogo completo no servidor</span>
             </div>
           ) : episodes.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {episodes.map((ep, idx) => {
-                const epThumb = formatImageUrl(
-                  ep.info?.movie_image || ep.info?.cover_big || cleanPoster
-                );
-                const epTitle = ep.title || ep.info?.name || `Episódio ${ep.episode_num}`;
+            <div className="space-y-3">
+              <div className="flex items-center justify-between text-xs text-gray-400 px-1">
+                <span>
+                  Exibindo todos os <strong className="text-emerald-400 font-bold">{episodes.length} episódios</strong> da {formatSeasonTitle(activeSeason)}
+                </span>
+                <span className="hidden sm:inline text-gray-500">
+                  Use as setas do controle para escolher e OK para assistir
+                </span>
+              </div>
 
-                return (
-                  <div
-                    key={ep.id || idx}
-                    tabIndex={0}
-                    role="button"
-                    onClick={() => handlePlayEpisode(ep, episodes, idx)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.keyCode === 13) {
-                        e.preventDefault();
-                        handlePlayEpisode(ep, episodes, idx);
-                      }
-                    }}
-                    className="group flex gap-3.5 p-3.5 rounded-2xl bg-surface-light/60 hover:bg-surface-light focus:bg-surface-light border border-white/5 hover:border-emerald-500/40 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400 cursor-pointer transition-all"
-                  >
-                    {/* Thumbnail */}
-                    <div className="relative w-28 sm:w-32 h-20 rounded-xl overflow-hidden bg-black/60 flex-shrink-0">
-                      {epThumb ? (
-                        <img
-                          src={epThumb}
-                          alt={epTitle}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-gray-600">
-                          <Film className="w-6 h-6" />
-                        </div>
-                      )}
-                      <div className="absolute inset-0 bg-black/40 group-hover:bg-black/10 flex items-center justify-center transition-all">
-                        <div className="p-2 rounded-full bg-emerald-500 text-black shadow-lg opacity-90 group-hover:opacity-100 group-hover:scale-110 transition-transform">
-                          <Play className="w-4 h-4 fill-black text-black" />
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {episodes.map((ep, idx) => {
+                  const epThumb = formatImageUrl(
+                    ep.info?.movie_image || ep.info?.cover_big || cleanPoster
+                  );
+                  const epNum = extractEpisodeNumber(ep) || idx + 1;
+                  const epTitle = ep.title || ep.info?.name || `Episódio ${epNum}`;
+
+                  return (
+                    <div
+                      key={ep.id || idx}
+                      tabIndex={0}
+                      role="button"
+                      onClick={() => handlePlayEpisode(ep, episodes, idx)}
+                      onFocus={(e) => {
+                        e.currentTarget.scrollIntoView({
+                          behavior: "smooth",
+                          block: "nearest",
+                        });
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.keyCode === 13) {
+                          e.preventDefault();
+                          handlePlayEpisode(ep, episodes, idx);
+                        }
+                      }}
+                      className="group flex gap-3.5 p-3.5 rounded-2xl bg-[#10141d] hover:bg-[#161d2b] focus:bg-[#182234] border border-white/5 hover:border-emerald-500/50 focus:border-emerald-400 focus:outline-none focus:ring-4 focus:ring-emerald-400/80 cursor-pointer transition-all focus:scale-[1.02] shadow-md"
+                    >
+                      {/* Thumbnail do Episódio */}
+                      <div className="relative w-28 sm:w-32 h-20 rounded-xl overflow-hidden bg-black/80 flex-shrink-0 border border-white/5">
+                        {epThumb ? (
+                          <img
+                            src={epThumb}
+                            alt={epTitle}
+                            className="w-full h-full object-cover group-hover:scale-105 group-focus:scale-105 transition-transform duration-300"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-gray-600">
+                            <Film className="w-6 h-6" />
+                          </div>
+                        )}
+                        <div className="absolute inset-0 bg-black/40 group-hover:bg-black/20 group-focus:bg-black/20 flex items-center justify-center transition-all">
+                          <div className="p-2 rounded-full bg-emerald-500 text-black shadow-lg opacity-90 group-hover:opacity-100 group-focus:opacity-100 group-hover:scale-110 group-focus:scale-110 transition-transform">
+                            <Play className="w-4 h-4 fill-black text-black" />
+                          </div>
                         </div>
                       </div>
-                    </div>
 
-                    {/* Info */}
-                    <div className="flex-1 flex flex-col justify-center min-w-0">
-                      <div className="flex items-center gap-1.5 text-[10px] font-bold text-emerald-400 uppercase mb-1">
-                        <span>Ep. {ep.episode_num}</span>
-                        {ep.info?.duration_secs ? (
-                          <span className="text-gray-400">
-                            • {Math.round(Number(ep.info.duration_secs) / 60)} min
-                          </span>
-                        ) : null}
+                      {/* Informações do Episódio */}
+                      <div className="flex-1 flex flex-col justify-center min-w-0">
+                        <div className="flex items-center gap-1.5 text-[10px] font-black text-emerald-400 uppercase tracking-wide mb-1">
+                          <span>EP. {epNum}</span>
+                          {ep.info?.duration_secs ? (
+                            <span className="text-gray-400 font-medium">
+                              • {Math.round(Number(ep.info.duration_secs) / 60)} min
+                            </span>
+                          ) : null}
+                        </div>
+                        <h4 className="text-xs sm:text-sm font-bold text-white line-clamp-1 group-hover:text-emerald-400 group-focus:text-emerald-300 transition-colors">
+                          {epTitle}
+                        </h4>
+                        {ep.info?.plot && (
+                          <p className="text-[11px] text-gray-400 line-clamp-2 mt-1 leading-snug">
+                            {ep.info.plot}
+                          </p>
+                        )}
                       </div>
-                      <h4 className="text-xs sm:text-sm font-semibold text-white line-clamp-1 group-hover:text-emerald-400 transition-colors">
-                        {epTitle}
-                      </h4>
-                      {ep.info?.plot && (
-                        <p className="text-[11px] text-gray-400 line-clamp-2 mt-1 leading-snug">
-                          {ep.info.plot}
-                        </p>
-                      )}
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
           ) : (
-            <div className="py-12 text-center text-gray-400 text-sm">
-              Nenhum episódio encontrado para esta temporada.
+            <div className="py-14 text-center text-gray-400 text-sm bg-surface-light/30 rounded-2xl border border-white/5">
+              Nenhum episódio encontrado para a {formatSeasonTitle(activeSeason)}.
             </div>
           )}
         </div>
