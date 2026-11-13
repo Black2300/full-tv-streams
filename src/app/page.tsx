@@ -578,7 +578,12 @@ export default function Home() {
           onClose={() => setActivePlayable(null)}
           onPlayNext={(next) => setActivePlayable(next)}
           liveChannels={(activePlayable as any).channelList || allLiveChannels}
-          onSwitchChannel={(ch) => {
+          categories={liveCategories}
+          allLiveChannels={allLiveChannels}
+          onSwitchChannel={(ch, newCategoryChannels) => {
+            const catName = liveCategories.find(
+              (c) => String(c.category_id) === String(ch.category_id)
+            )?.category_name;
             setActivePlayable((prev) => ({
               ...prev,
               type: "live",
@@ -586,7 +591,9 @@ export default function Home() {
               title: ch.name,
               poster: ch.stream_icon,
               streamUrl: getLiveStreamUrl(ch.stream_id),
-              channelList: (prev as any)?.channelList || allLiveChannels,
+              channelList: newCategoryChannels || (prev as any)?.channelList || allLiveChannels,
+              categoryId: ch.category_id,
+              category: catName || (prev as any)?.category,
             }));
           }}
         />

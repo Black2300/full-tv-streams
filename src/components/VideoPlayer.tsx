@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState, useCallback } from "react";
+import React, { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import Hls from "hls.js";
 import {
   Play,
@@ -20,8 +20,9 @@ import {
   ChevronRight,
   Shield,
   Zap,
+  Folder,
 } from "lucide-react";
-import { PlayableItem, LiveStream } from "@/types/iptv";
+import { PlayableItem, LiveStream, Category } from "@/types/iptv";
 import { saveWatchProgress, getSavedProgress } from "@/services/storage";
 
 interface VideoPlayerProps {
@@ -29,7 +30,9 @@ interface VideoPlayerProps {
   onClose: () => void;
   onPlayNext?: (next: PlayableItem) => void;
   liveChannels?: LiveStream[];
-  onSwitchChannel?: (channel: LiveStream) => void;
+  categories?: Category[];
+  allLiveChannels?: LiveStream[];
+  onSwitchChannel?: (channel: LiveStream, newCategoryChannels?: LiveStream[]) => void;
 }
 
 export const VideoPlayer: React.FC<VideoPlayerProps> = ({
@@ -37,6 +40,8 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   onClose,
   onPlayNext,
   liveChannels = [],
+  categories = [],
+  allLiveChannels = [],
   onSwitchChannel,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -67,9 +72,20 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const isPlayingRef = useRef(false);
   isPlayingRef.current = isPlaying;
 
-  const [channelToast, setChannelToast] = useState<LiveStream | null>(null);
+  const [channelToast, setChannelToast] = useState<{
+    channel: LiveStream;
+    categoryName?: string;
+  } | null>(null);
   const channelToastTimeout = useRef<NodeJS.Timeout | null>(null);
   const hasRestoredTimeRef = useRef(false);
+
+  const [currentChannelList, setCurrentChannelList] = useState<LiveStream[]>(liveChannels);
+
+  useEffect(() => {
+    if (liveChannels && liveChannels.length > 0) {
+      setCurrentChannelList(liveChannels);
+    }
+  }, [liveChannels]);
 
   // Registra as teclas ChannelUp e ChannelDown no Samsung Tizen
   useEffect(() => {
@@ -89,43 +105,138 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const rawUrl = item?.streamUrl || "";
   const isLive = item?.type === "live";
 
-  const showChannelToastNotification = useCallback((channel: LiveStream) => {
-    setChannelToast(channel);
-    if (channelToastTimeout.current) clearTimeout(channelToastTimeout.current);
-    channelToastTimeout.current = setTimeout(() => {
-      setChannelToast(null);
-    }, 3200);
-  }, []);
+  // Lista de categorias válidas (que possuem canais disponíveis)
+  const validCategories: Category[] = useMemo(() => {
+    const cats: Category[] = categories.length > 0 ? categories : (item as any)?.categories || [];
+    const allCh: LiveStream[] = allLiveChannels.length > 0 ? allLiveChannels : (item as any)?.allChannels || [];
+    if (cats.length === 0) return [];
+    if (allCh.length === 0) return cats;
 
-  // Troca para o próximo canal da categoria
+    const catIdsWithChannels = new Set(allCh.map((c: LiveStream) => String(c.category_id)));
+    const filtered = cats.filter((cat: Category) => catIdsWithChannels.has(String(cat.category_id)));
+    return filtered.length > 0 ? filtered : cats;
+  }, [categories, allLiveChannels, item]);
+
+  // Identifica a categoria atual do canal em reprodução
+  const getCurrentCategoryId = useCallback((): string => {
+    if ((item as any)?.categoryId) return String((item as any).categoryId);
+    const allCh = allLiveChannels.length > 0 ? allLiveChannels : (item as any)?.allChannels || [];
+    if (allCh.length > 0) {
+      const found = allCh.find((c: LiveStream) => c.stream_id === item?.id);
+      if (found?.category_id) return String(found.category_id);
+    }
+    const currentList = currentChannelList.length > 0 ? currentChannelList : liveChannels;
+    if (currentList.length > 0) {
+      const found = currentList.find((c: LiveStream) => c.stream_id === item?.id);
+      if (found?.category_id) return String(found.category_id);
+      if (currentList[0]?.category_id) return String(currentList[0].category_id);
+    }
+    return validCategories[0]?.category_id || "";
+  }, [item, allLiveChannels, currentChannelList, liveChannels, validCategories]);
+
+  // Exibe a notificação de troca de canal / categoria na tela da TV
+  const showChannelToastNotification = useCallback(
+    (channel: LiveStream, categoryName?: string) => {
+      let catName = categoryName;
+      if (!catName) {
+        const cats = categories.length > 0 ? categories : (item as any)?.categories || [];
+        const cat = cats.find((c: Category) => String(c.category_id) === String(channel.category_id));
+        catName = cat?.category_name || (item as any)?.category;
+      }
+      setChannelToast({ channel, categoryName: catName });
+      if (channelToastTimeout.current) clearTimeout(channelToastTimeout.current);
+      channelToastTimeout.current = setTimeout(() => {
+        setChannelToast(null);
+      }, 3500);
+    },
+    [categories, item]
+  );
+
+  // Troca para o próximo canal da categoria atual
   const goToNextChannel = useCallback(() => {
-    if (!isLive || liveChannels.length === 0) return;
-    const currentIndex = liveChannels.findIndex((c) => c.stream_id === item?.id);
-    const nextIndex = currentIndex === -1 ? 0 : (currentIndex + 1) % liveChannels.length;
-    const nextChannel = liveChannels[nextIndex];
+    const list = currentChannelList.length > 0 ? currentChannelList : liveChannels;
+    if (!isLive || list.length === 0) return;
+    const currentIndex = list.findIndex((c) => c.stream_id === item?.id);
+    const nextIndex = currentIndex === -1 ? 0 : (currentIndex + 1) % list.length;
+    const nextChannel = list[nextIndex];
     if (nextChannel && onSwitchChannel) {
       if (videoRef.current && !isMuted) {
         videoRef.current.muted = false;
       }
-      onSwitchChannel(nextChannel);
+      onSwitchChannel(nextChannel, list);
       showChannelToastNotification(nextChannel);
     }
-  }, [isLive, liveChannels, item?.id, onSwitchChannel, isMuted, showChannelToastNotification]);
+  }, [isLive, currentChannelList, liveChannels, item?.id, onSwitchChannel, isMuted, showChannelToastNotification]);
 
-  // Troca para o canal anterior da categoria
+  // Troca para o canal anterior da categoria atual
   const goToPrevChannel = useCallback(() => {
-    if (!isLive || liveChannels.length === 0) return;
-    const currentIndex = liveChannels.findIndex((c) => c.stream_id === item?.id);
-    const prevIndex = currentIndex === -1 ? 0 : (currentIndex - 1 + liveChannels.length) % liveChannels.length;
-    const prevChannel = liveChannels[prevIndex];
+    const list = currentChannelList.length > 0 ? currentChannelList : liveChannels;
+    if (!isLive || list.length === 0) return;
+    const currentIndex = list.findIndex((c) => c.stream_id === item?.id);
+    const prevIndex = currentIndex === -1 ? 0 : (currentIndex - 1 + list.length) % list.length;
+    const prevChannel = list[prevIndex];
     if (prevChannel && onSwitchChannel) {
       if (videoRef.current && !isMuted) {
         videoRef.current.muted = false;
       }
-      onSwitchChannel(prevChannel);
+      onSwitchChannel(prevChannel, list);
       showChannelToastNotification(prevChannel);
     }
-  }, [isLive, liveChannels, item?.id, onSwitchChannel, isMuted, showChannelToastNotification]);
+  }, [isLive, currentChannelList, liveChannels, item?.id, onSwitchChannel, isMuted, showChannelToastNotification]);
+
+  // Pula para a próxima categoria de canais (Seta Para Baixo)
+  const goToNextCategory = useCallback(() => {
+    const allCh = allLiveChannels.length > 0 ? allLiveChannels : (item as any)?.allChannels || [];
+    if (!isLive || validCategories.length === 0 || allCh.length === 0) return;
+
+    const currentCatId = getCurrentCategoryId();
+    const currentIndex = validCategories.findIndex((c: Category) => String(c.category_id) === String(currentCatId));
+    const nextIndex = currentIndex === -1 ? 0 : (currentIndex + 1) % validCategories.length;
+    const targetCat = validCategories[nextIndex];
+    if (!targetCat) return;
+
+    const channelsInTarget = allCh.filter(
+      (c: LiveStream) => String(c.category_id) === String(targetCat.category_id)
+    );
+    if (channelsInTarget.length === 0) return;
+
+    const firstChannel = channelsInTarget[0];
+    setCurrentChannelList(channelsInTarget);
+    if (onSwitchChannel) {
+      if (videoRef.current && !isMuted) {
+        videoRef.current.muted = false;
+      }
+      onSwitchChannel(firstChannel, channelsInTarget);
+      showChannelToastNotification(firstChannel, targetCat.category_name);
+    }
+  }, [isLive, validCategories, allLiveChannels, item, getCurrentCategoryId, onSwitchChannel, isMuted, showChannelToastNotification]);
+
+  // Pula para a categoria anterior de canais (Seta Para Cima)
+  const goToPrevCategory = useCallback(() => {
+    const allCh = allLiveChannels.length > 0 ? allLiveChannels : (item as any)?.allChannels || [];
+    if (!isLive || validCategories.length === 0 || allCh.length === 0) return;
+
+    const currentCatId = getCurrentCategoryId();
+    const currentIndex = validCategories.findIndex((c: Category) => String(c.category_id) === String(currentCatId));
+    const prevIndex = currentIndex === -1 ? 0 : (currentIndex - 1 + validCategories.length) % validCategories.length;
+    const targetCat = validCategories[prevIndex];
+    if (!targetCat) return;
+
+    const channelsInTarget = allCh.filter(
+      (c: LiveStream) => String(c.category_id) === String(targetCat.category_id)
+    );
+    if (channelsInTarget.length === 0) return;
+
+    const firstChannel = channelsInTarget[0];
+    setCurrentChannelList(channelsInTarget);
+    if (onSwitchChannel) {
+      if (videoRef.current && !isMuted) {
+        videoRef.current.muted = false;
+      }
+      onSwitchChannel(firstChannel, channelsInTarget);
+      showChannelToastNotification(firstChannel, targetCat.category_name);
+    }
+  }, [isLive, validCategories, allLiveChannels, item, getCurrentCategoryId, onSwitchChannel, isMuted, showChannelToastNotification]);
 
   // Continua o filme/série exatamente de onde o usuário parou
   const trySeekToSavedTime = useCallback(() => {
@@ -556,27 +667,77 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
       if (e.code === "Space" || e.key === "Enter") {
         e.preventDefault();
         togglePlay();
-      } else if (e.code === "ArrowRight") {
+        return;
+      }
+
+      // Detecção de setas do controle remoto
+      const isArrowUp = e.key === "ArrowUp" || e.code === "ArrowUp" || e.keyCode === 38;
+      const isArrowDown = e.key === "ArrowDown" || e.code === "ArrowDown" || e.keyCode === 40;
+      const isArrowRight = e.key === "ArrowRight" || e.code === "ArrowRight" || e.keyCode === 39;
+      const isArrowLeft = e.key === "ArrowLeft" || e.code === "ArrowLeft" || e.keyCode === 37;
+
+      // Se a gaveta lateral de canais estiver aberta, permitir que as setas naveguem pelos canais
+      if (showChannelsOverlay) {
+        if (
+          e.key === "Escape" ||
+          e.key === "Back" ||
+          e.key === "GoBack" ||
+          e.key === "Return" ||
+          e.keyCode === 10009 ||
+          e.keyCode === 27
+        ) {
+          e.preventDefault();
+          e.stopPropagation();
+          setShowChannelsOverlay(false);
+        }
+        return;
+      }
+
+      // Ao pressionar PARA BAIXO em canal ao vivo: pular para a PRÓXIMA categoria
+      if (isArrowDown) {
+        e.preventDefault();
+        if (isLive) {
+          goToNextCategory();
+        } else {
+          changeVolume(Math.max(0, volume - 0.1));
+        }
+        return;
+      }
+
+      // Ao pressionar PARA CIMA em canal ao vivo: pular para a categoria ANTERIOR
+      if (isArrowUp) {
+        e.preventDefault();
+        if (isLive) {
+          goToPrevCategory();
+        } else {
+          changeVolume(Math.min(1, volume + 0.1));
+        }
+        return;
+      }
+
+      // Ao pressionar PARA DIREITA em canal ao vivo: próximo canal da categoria
+      if (isArrowRight) {
         e.preventDefault();
         if (isLive) {
           goToNextChannel();
         } else {
           seek(10);
         }
-      } else if (e.code === "ArrowLeft") {
+        return;
+      }
+
+      // Ao pressionar PARA ESQUERDA em canal ao vivo: canal anterior da categoria
+      if (isArrowLeft) {
         e.preventDefault();
         if (isLive) {
           goToPrevChannel();
         } else {
           seek(-10);
         }
-      } else if (e.code === "ArrowUp") {
-        e.preventDefault();
-        changeVolume(Math.min(1, volume + 0.1));
-      } else if (e.code === "ArrowDown") {
-        e.preventDefault();
-        changeVolume(Math.max(0, volume - 0.1));
-      } else if (e.key === "f" || e.key === "F") {
+        return;
+      }
+
+      if (e.key === "f" || e.key === "F") {
         e.preventDefault();
         toggleFullscreen();
       } else if (e.key === "m" || e.key === "M") {
@@ -592,10 +753,6 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
       ) {
         e.preventDefault();
         e.stopPropagation();
-        if (showChannelsOverlay) {
-          setShowChannelsOverlay(false);
-          return;
-        }
         onClose();
       }
     };
@@ -623,7 +780,20 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("tizenhwkey", handleTizenHardwareKey);
     };
-  }, [volume, isFullscreen, isPlaying, showChannelsOverlay, onClose, resetControlsTimeout, errorMsg, isLive, goToNextChannel, goToPrevChannel]);
+  }, [
+    volume,
+    isFullscreen,
+    isPlaying,
+    showChannelsOverlay,
+    onClose,
+    resetControlsTimeout,
+    errorMsg,
+    isLive,
+    goToNextChannel,
+    goToPrevChannel,
+    goToNextCategory,
+    goToPrevCategory,
+  ]);
 
   const togglePlay = () => {
     if (!videoRef.current) return;
@@ -727,7 +897,8 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
 
   if (!item) return null;
 
-  const filteredChannels = liveChannels.filter((c) =>
+  const currentChannels = currentChannelList.length > 0 ? currentChannelList : liveChannels;
+  const filteredChannels = currentChannels.filter((c) =>
     c.name.toLowerCase().includes(channelSearch.toLowerCase())
   );
 
@@ -754,15 +925,15 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
         }`}
       />
 
-      {/* TV OSD Channel Change Banner (Aparece ao trocar de canal pelo controle remoto) */}
+      {/* TV OSD Channel & Category Change Banner (Aparece ao trocar de canal ou categoria) */}
       {channelToast && (
         <div className="absolute top-6 right-6 sm:top-8 sm:right-8 z-40 animate-fade-in pointer-events-none select-none">
-          <div className="flex items-center gap-3.5 bg-black/90 backdrop-blur-xl border border-emerald-500/40 rounded-2xl p-3.5 sm:p-4 shadow-2xl shadow-emerald-500/25 max-w-sm">
+          <div className="flex items-center gap-3.5 bg-black/95 backdrop-blur-xl border border-emerald-500/40 rounded-2xl p-3.5 sm:p-4 shadow-2xl shadow-emerald-500/30 max-w-md">
             <div className="w-12 h-12 rounded-xl bg-black/80 border border-white/10 p-1 flex items-center justify-center flex-shrink-0 overflow-hidden">
-              {channelToast.stream_icon ? (
+              {channelToast.channel.stream_icon ? (
                 <img
-                  src={channelToast.stream_icon}
-                  alt={channelToast.name}
+                  src={channelToast.channel.stream_icon}
+                  alt={channelToast.channel.name}
                   className="w-full h-full object-contain"
                 />
               ) : (
@@ -770,18 +941,29 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
               )}
             </div>
             <div className="min-w-0 pr-2">
-              <div className="flex items-center gap-2 mb-0.5">
+              <div className="flex items-center gap-2 mb-1 flex-wrap">
                 <span className="flex items-center gap-1 text-[10px] font-black uppercase text-emerald-400 bg-emerald-500/20 px-2 py-0.5 rounded">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                   AO VIVO
                 </span>
+                {channelToast.categoryName && (
+                  <span className="flex items-center gap-1 text-[10px] font-bold text-amber-300 bg-amber-500/20 border border-amber-500/30 px-2 py-0.5 rounded truncate max-w-[200px]">
+                    <Folder className="w-3 h-3 text-amber-400 flex-shrink-0" />
+                    <span className="truncate">{channelToast.categoryName}</span>
+                  </span>
+                )}
                 <span className="text-[11px] font-mono text-gray-400">
-                  #{channelToast.num || channelToast.stream_id}
+                  #{channelToast.channel.num || channelToast.channel.stream_id}
                 </span>
               </div>
               <h4 className="text-sm sm:text-base font-bold text-white truncate drop-shadow">
-                {channelToast.name}
+                {channelToast.channel.name}
               </h4>
+              <div className="text-[10px] text-gray-400 mt-1 flex items-center gap-2 font-medium">
+                <span className="text-emerald-400">▲ ▼ Categoria</span>
+                <span>•</span>
+                <span className="text-gray-300">◄ ► Canal</span>
+              </div>
             </div>
           </div>
         </div>
@@ -995,7 +1177,8 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
                       if (videoRef.current && !isMuted) {
                         videoRef.current.muted = false;
                       }
-                      onSwitchChannel?.(channel);
+                      onSwitchChannel?.(channel, currentChannels);
+                      showChannelToastNotification(channel);
                       // NÃO FECHA A ABA: Permanece aberta para o usuário continuar navegando!
                     }}
                     className={`w-full flex items-center gap-3.5 p-3 sm:p-3.5 rounded-2xl transition-all text-left group ${

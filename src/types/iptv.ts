@@ -137,8 +137,11 @@ export type PlayableItem =
       title: string;
       poster?: string;
       category?: string;
+      categoryId?: string;
       streamUrl: string;
       channelList?: LiveStream[];
+      categories?: Category[];
+      allChannels?: LiveStream[];
     }
   | {
       type: "movie";

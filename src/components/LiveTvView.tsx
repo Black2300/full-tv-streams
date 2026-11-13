@@ -210,8 +210,11 @@ export const LiveTvView: React.FC<LiveTvViewProps> = ({
                       title: channel.name,
                       poster: cleanLogo,
                       category: activeCategoryObj?.category_name,
+                      categoryId: channel.category_id,
                       streamUrl: getLiveStreamUrl(channel.stream_id),
                       channelList: filteredChannels,
+                      categories: categories,
+                      allChannels: channels,
                     });
                   };
 
