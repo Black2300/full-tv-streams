@@ -22,7 +22,7 @@ import {
   Zap,
 } from "lucide-react";
 import { PlayableItem, LiveStream } from "@/types/iptv";
-import { saveWatchProgress } from "@/services/storage";
+import { saveWatchProgress, getSavedProgress } from "@/services/storage";
 
 interface VideoPlayerProps {
   item: PlayableItem | null;
@@ -67,6 +67,89 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const isPlayingRef = useRef(false);
   isPlayingRef.current = isPlaying;
 
+  const [channelToast, setChannelToast] = useState<LiveStream | null>(null);
+  const channelToastTimeout = useRef<NodeJS.Timeout | null>(null);
+  const hasRestoredTimeRef = useRef(false);
+
+  // Registra as teclas ChannelUp e ChannelDown no Samsung Tizen
+  useEffect(() => {
+    try {
+      if (typeof window !== "undefined" && (window as any).tizen?.tvinputdevice) {
+        (window as any).tizen.tvinputdevice.registerKey("ChannelUp");
+        (window as any).tizen.tvinputdevice.registerKey("ChannelDown");
+      }
+    } catch (e) {}
+  }, []);
+
+  // Reseta o flag de restauração de tempo ao trocar de filme/episódio
+  useEffect(() => {
+    hasRestoredTimeRef.current = false;
+  }, [item?.id]);
+
+  const rawUrl = item?.streamUrl || "";
+  const isLive = item?.type === "live";
+
+  const showChannelToastNotification = useCallback((channel: LiveStream) => {
+    setChannelToast(channel);
+    if (channelToastTimeout.current) clearTimeout(channelToastTimeout.current);
+    channelToastTimeout.current = setTimeout(() => {
+      setChannelToast(null);
+    }, 3200);
+  }, []);
+
+  // Troca para o próximo canal da categoria
+  const goToNextChannel = useCallback(() => {
+    if (!isLive || liveChannels.length === 0) return;
+    const currentIndex = liveChannels.findIndex((c) => c.stream_id === item?.id);
+    const nextIndex = currentIndex === -1 ? 0 : (currentIndex + 1) % liveChannels.length;
+    const nextChannel = liveChannels[nextIndex];
+    if (nextChannel && onSwitchChannel) {
+      if (videoRef.current && !isMuted) {
+        videoRef.current.muted = false;
+      }
+      onSwitchChannel(nextChannel);
+      showChannelToastNotification(nextChannel);
+    }
+  }, [isLive, liveChannels, item?.id, onSwitchChannel, isMuted, showChannelToastNotification]);
+
+  // Troca para o canal anterior da categoria
+  const goToPrevChannel = useCallback(() => {
+    if (!isLive || liveChannels.length === 0) return;
+    const currentIndex = liveChannels.findIndex((c) => c.stream_id === item?.id);
+    const prevIndex = currentIndex === -1 ? 0 : (currentIndex - 1 + liveChannels.length) % liveChannels.length;
+    const prevChannel = liveChannels[prevIndex];
+    if (prevChannel && onSwitchChannel) {
+      if (videoRef.current && !isMuted) {
+        videoRef.current.muted = false;
+      }
+      onSwitchChannel(prevChannel);
+      showChannelToastNotification(prevChannel);
+    }
+  }, [isLive, liveChannels, item?.id, onSwitchChannel, isMuted, showChannelToastNotification]);
+
+  // Continua o filme/série exatamente de onde o usuário parou
+  const trySeekToSavedTime = useCallback(() => {
+    if (isLive || hasRestoredTimeRef.current || !videoRef.current || !item) return;
+
+    const targetTime =
+      (item as any)?.initialTime ||
+      getSavedProgress(`${item.type}_${item.id}`)?.currentTime;
+
+    if (targetTime && targetTime > 5) {
+      const v = videoRef.current;
+      if (!v.duration || targetTime < v.duration - 15) {
+        try {
+          console.log(`[VideoPlayer] Continuando reprodução em ${targetTime}s`);
+          v.currentTime = targetTime;
+          setCurrentTime(targetTime);
+          hasRestoredTimeRef.current = true;
+        } catch (e) {
+          console.warn("Could not restore saved position yet:", e);
+        }
+      }
+    }
+  }, [isLive, item]);
+
   // Foco automático no botão "Tentar Novamente" em caso de erro
   useEffect(() => {
     if (errorMsg) {
@@ -99,9 +182,6 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
       if (hideControlsTimeout.current) clearTimeout(hideControlsTimeout.current);
     }
   }, [isPlaying, resetControlsTimeout]);
-
-  const rawUrl = item?.streamUrl || "";
-  const isLive = item?.type === "live";
 
   // Auto-scroll to active channel when channel drawer opens
   useEffect(() => {
@@ -168,6 +248,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
       // Preserve user volume and mute preference
       video.muted = isMuted;
       video.volume = volume;
+      trySeekToSavedTime();
 
       const playPromise = video.play();
       if (playPromise !== undefined) {
@@ -227,6 +308,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
         setIsLoading(false);
         safePlay();
+        trySeekToSavedTime();
       });
 
       hls.on(Hls.Events.ERROR, (_event, data) => {
@@ -328,15 +410,19 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     };
     const onCanPlay = () => {
       setIsLoading(false);
+      trySeekToSavedTime();
     };
     const onCanPlayThrough = () => {
       setIsLoading(false);
+      trySeekToSavedTime();
     };
     const onLoadedMetadata = () => {
       setIsLoading(false);
+      trySeekToSavedTime();
     };
     const onLoadedData = () => {
       setIsLoading(false);
+      trySeekToSavedTime();
     };
     const onTimeUpdate = () => {
       setCurrentTime(video.currentTime);
@@ -435,16 +521,53 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
         return;
       }
 
+      // Comando de mudar de canal no controle remoto (ChannelUp / ChannelDown / PageUp / PageDown)
+      const isChannelUp =
+        e.key === "ChannelUp" ||
+        e.keyCode === 427 ||
+        e.code === "ChannelUp" ||
+        e.key === "PageUp" ||
+        e.keyCode === 33;
+
+      const isChannelDown =
+        e.key === "ChannelDown" ||
+        e.keyCode === 428 ||
+        e.code === "ChannelDown" ||
+        e.key === "PageDown" ||
+        e.keyCode === 34;
+
+      if (isChannelUp) {
+        e.preventDefault();
+        e.stopPropagation();
+        goToNextChannel();
+        return;
+      }
+
+      if (isChannelDown) {
+        e.preventDefault();
+        e.stopPropagation();
+        goToPrevChannel();
+        return;
+      }
+
       // Enter or Space: Play/Pause
       if (e.code === "Space" || e.key === "Enter") {
         e.preventDefault();
         togglePlay();
       } else if (e.code === "ArrowRight") {
         e.preventDefault();
-        seek(10);
+        if (isLive) {
+          goToNextChannel();
+        } else {
+          seek(10);
+        }
       } else if (e.code === "ArrowLeft") {
         e.preventDefault();
-        seek(-10);
+        if (isLive) {
+          goToPrevChannel();
+        } else {
+          seek(-10);
+        }
       } else if (e.code === "ArrowUp") {
         e.preventDefault();
         changeVolume(Math.min(1, volume + 0.1));
@@ -483,6 +606,12 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
           return;
         }
         onClose();
+      } else if (e.keyName === "ChannelUp") {
+        e.preventDefault();
+        goToNextChannel();
+      } else if (e.keyName === "ChannelDown") {
+        e.preventDefault();
+        goToPrevChannel();
       }
     };
 
@@ -492,7 +621,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("tizenhwkey", handleTizenHardwareKey);
     };
-  }, [volume, isFullscreen, isPlaying, showChannelsOverlay, onClose, resetControlsTimeout, errorMsg]);
+  }, [volume, isFullscreen, isPlaying, showChannelsOverlay, onClose, resetControlsTimeout, errorMsg, isLive, goToNextChannel, goToPrevChannel]);
 
   const togglePlay = () => {
     if (!videoRef.current) return;
@@ -622,6 +751,39 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
             : "object-fill"
         }`}
       />
+
+      {/* TV OSD Channel Change Banner (Aparece ao trocar de canal pelo controle remoto) */}
+      {channelToast && (
+        <div className="absolute top-6 right-6 sm:top-8 sm:right-8 z-40 animate-fade-in pointer-events-none select-none">
+          <div className="flex items-center gap-3.5 bg-black/90 backdrop-blur-xl border border-emerald-500/40 rounded-2xl p-3.5 sm:p-4 shadow-2xl shadow-emerald-500/25 max-w-sm">
+            <div className="w-12 h-12 rounded-xl bg-black/80 border border-white/10 p-1 flex items-center justify-center flex-shrink-0 overflow-hidden">
+              {channelToast.stream_icon ? (
+                <img
+                  src={channelToast.stream_icon}
+                  alt={channelToast.name}
+                  className="w-full h-full object-contain"
+                />
+              ) : (
+                <Tv className="w-6 h-6 text-emerald-400" />
+              )}
+            </div>
+            <div className="min-w-0 pr-2">
+              <div className="flex items-center gap-2 mb-0.5">
+                <span className="flex items-center gap-1 text-[10px] font-black uppercase text-emerald-400 bg-emerald-500/20 px-2 py-0.5 rounded">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  AO VIVO
+                </span>
+                <span className="text-[11px] font-mono text-gray-400">
+                  #{channelToast.num || channelToast.stream_id}
+                </span>
+              </div>
+              <h4 className="text-sm sm:text-base font-bold text-white truncate drop-shadow">
+                {channelToast.name}
+              </h4>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Loading Spinner Profissional (sem popup incômodo de 'Iniciar reprodução') */}
       {isLoading && (

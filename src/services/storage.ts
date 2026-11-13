@@ -64,6 +64,12 @@ export function getWatchHistory(): WatchProgress[] {
   }
 }
 
+export function getSavedProgress(id: string): WatchProgress | null {
+  if (typeof window === "undefined") return null;
+  const history = getWatchHistory();
+  return history.find((p) => p.id === id) || null;
+}
+
 export function saveWatchProgress(progress: WatchProgress): void {
   if (typeof window === "undefined") return;
   try {

@@ -138,6 +138,7 @@ export type PlayableItem =
       poster?: string;
       category?: string;
       streamUrl: string;
+      channelList?: LiveStream[];
     }
   | {
       type: "movie";
@@ -153,6 +154,7 @@ export type PlayableItem =
       director?: string;
       genre?: string;
       streamUrl: string;
+      initialTime?: number;
     }
   | {
       type: "episode";
@@ -167,6 +169,7 @@ export type PlayableItem =
       backdrop?: string;
       plot?: string;
       streamUrl: string;
+      initialTime?: number;
       nextEpisode?: {
         id: number | string;
         title: string;

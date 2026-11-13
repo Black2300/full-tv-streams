@@ -257,6 +257,7 @@ export default function Home() {
         title: progress.title,
         poster: progress.poster,
         streamUrl: getMovieStreamUrl(cleanId),
+        initialTime: progress.currentTime || 0,
       });
     } else {
       const cleanId = progress.id.replace("episode_", "");
@@ -270,6 +271,7 @@ export default function Home() {
         episodeNum: progress.episodeNum || 1,
         poster: progress.poster,
         streamUrl: getEpisodeStreamUrl(cleanId),
+        initialTime: progress.currentTime || 0,
       });
     }
   };
@@ -322,26 +324,41 @@ export default function Home() {
                     <h2 className="text-lg sm:text-xl font-bold text-white">Continuar Assistindo</h2>
                   </div>
                   <div className="flex gap-4 overflow-x-auto no-scrollbar py-2">
-                    {watchHistory.slice(0, 6).map((prog) => (
-                      <div
+                    {watchHistory.slice(0, 10).map((prog) => (
+                      <button
                         key={prog.id}
+                        type="button"
+                        tabIndex={0}
                         onClick={() => handleResumeHistory(prog)}
-                        className="group flex-shrink-0 w-56 sm:w-64 bg-surface rounded-2xl overflow-hidden border border-white/5 hover:border-emerald-500/40 cursor-pointer transition-all duration-200 hover:scale-[1.02]"
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.keyCode === 13) {
+                            e.preventDefault();
+                            handleResumeHistory(prog);
+                          }
+                        }}
+                        onFocus={(e) =>
+                          e.currentTarget.scrollIntoView({
+                            behavior: "smooth",
+                            block: "nearest",
+                            inline: "center",
+                          })
+                        }
+                        className="group flex-shrink-0 w-60 sm:w-68 bg-surface rounded-2xl overflow-hidden border border-white/5 hover:border-emerald-500/40 focus:border-emerald-400 focus:outline-none focus:ring-4 focus:ring-emerald-400 focus:scale-[1.04] cursor-pointer transition-all duration-200 text-left select-none"
                       >
-                        <div className="relative aspect-video bg-black/60 overflow-hidden">
+                        <div className="relative aspect-video bg-black/60 overflow-hidden pointer-events-none">
                           {prog.poster ? (
                             <img
                               src={prog.poster}
                               alt={prog.title}
-                              className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                              className="w-full h-full object-cover group-hover:scale-105 group-focus:scale-105 transition-transform"
                             />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center text-gray-500">
                               <Clapperboard className="w-8 h-8" />
                             </div>
                           )}
-                          <div className="absolute inset-0 bg-black/30 group-hover:bg-black/10 flex items-center justify-center transition-all">
-                            <div className="p-3 rounded-full bg-emerald-500 text-black shadow-lg shadow-emerald-500/30 group-hover:scale-110 transition-transform">
+                          <div className="absolute inset-0 bg-black/30 group-hover:bg-black/10 group-focus:bg-black/10 flex items-center justify-center transition-all">
+                            <div className="p-3 rounded-full bg-emerald-500 text-black shadow-lg shadow-emerald-500/30 group-hover:scale-110 group-focus:scale-110 transition-transform">
                               <Play className="w-4 h-4 fill-black text-black" />
                             </div>
                           </div>
@@ -353,8 +370,8 @@ export default function Home() {
                             />
                           </div>
                         </div>
-                        <div className="p-3">
-                          <h4 className="text-xs sm:text-sm font-semibold text-white truncate group-hover:text-emerald-400 transition-colors">
+                        <div className="p-3 pointer-events-none">
+                          <h4 className="text-xs sm:text-sm font-semibold text-white truncate group-hover:text-emerald-400 group-focus:text-emerald-400 transition-colors">
                             {prog.title}
                           </h4>
                           <div className="flex items-center justify-between text-[11px] text-gray-400 mt-1">
@@ -365,10 +382,12 @@ export default function Home() {
                                 ? "Filme"
                                 : `T${prog.season}:E${prog.episodeNum}`}
                             </span>
-                            <span className="text-emerald-400 font-semibold">Continuar</span>
+                            <span className="text-emerald-400 font-semibold">
+                              Continuar ({Math.round(prog.progressPercent || 0)}%)
+                            </span>
                           </div>
                         </div>
-                      </div>
+                      </button>
                     ))}
                   </div>
                 </div>
@@ -558,15 +577,17 @@ export default function Home() {
           item={activePlayable}
           onClose={() => setActivePlayable(null)}
           onPlayNext={(next) => setActivePlayable(next)}
-          liveChannels={allLiveChannels}
+          liveChannels={(activePlayable as any).channelList || allLiveChannels}
           onSwitchChannel={(ch) => {
-            setActivePlayable({
+            setActivePlayable((prev) => ({
+              ...prev,
               type: "live",
               id: ch.stream_id,
               title: ch.name,
               poster: ch.stream_icon,
               streamUrl: getLiveStreamUrl(ch.stream_id),
-            });
+              channelList: (prev as any)?.channelList || allLiveChannels,
+            }));
           }}
         />
       )}

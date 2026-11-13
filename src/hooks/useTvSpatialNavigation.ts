@@ -14,6 +14,7 @@ export function useTvSpatialNavigation() {
       if (typeof window !== "undefined" && (window as any).tizen && (window as any).tizen.tvinputdevice) {
         const keys = [
           "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Enter", "Return",
+          "ChannelUp", "ChannelDown",
           "MediaPlay", "MediaPause", "MediaPlayPause", "MediaStop",
           "MediaFastForward", "MediaRewind", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9"
         ];
