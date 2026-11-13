@@ -191,6 +191,7 @@ export interface WatchProgress {
   seriesTitle?: string;
   season?: number;
   episodeNum?: number | string;
+  streamUrl?: string;
 }
 
 export interface FavoriteItem {

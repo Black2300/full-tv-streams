@@ -137,14 +137,17 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
 
     if (targetTime && targetTime > 5) {
       const v = videoRef.current;
-      if (!v.duration || targetTime < v.duration - 15) {
-        try {
-          console.log(`[VideoPlayer] Continuando reprodução em ${targetTime}s`);
-          v.currentTime = targetTime;
-          setCurrentTime(targetTime);
-          hasRestoredTimeRef.current = true;
-        } catch (e) {
-          console.warn("Could not restore saved position yet:", e);
+      // Garante que o vídeo tenha metadados carregados antes de buscar para não disparar erro
+      if (v.readyState >= 1) {
+        if (!v.duration || targetTime < v.duration - 15) {
+          try {
+            console.log(`[VideoPlayer] Continuando reprodução em ${targetTime}s`);
+            v.currentTime = targetTime;
+            setCurrentTime(targetTime);
+            hasRestoredTimeRef.current = true;
+          } catch (e) {
+            console.warn("Could not restore saved position yet:", e);
+          }
         }
       }
     }
@@ -248,7 +251,6 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
       // Preserve user volume and mute preference
       video.muted = isMuted;
       video.volume = volume;
-      trySeekToSavedTime();
 
       const playPromise = video.play();
       if (playPromise !== undefined) {
@@ -382,7 +384,6 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
         },
         { once: true }
       );
-      safePlay();
     }
 
     return () => {
@@ -490,6 +491,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
         seriesTitle: (item as any).seriesTitle,
         season: (item as any).season,
         episodeNum: (item as any).episodeNum,
+        streamUrl: rawUrl,
       });
     }, 5000);
 

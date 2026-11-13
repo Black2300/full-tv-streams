@@ -256,7 +256,7 @@ export default function Home() {
         id: Number(cleanId),
         title: progress.title,
         poster: progress.poster,
-        streamUrl: getMovieStreamUrl(cleanId),
+        streamUrl: progress.streamUrl || getMovieStreamUrl(cleanId),
         initialTime: progress.currentTime || 0,
       });
     } else {
@@ -270,7 +270,7 @@ export default function Home() {
         season: progress.season || 1,
         episodeNum: progress.episodeNum || 1,
         poster: progress.poster,
-        streamUrl: getEpisodeStreamUrl(cleanId),
+        streamUrl: progress.streamUrl || getEpisodeStreamUrl(cleanId),
         initialTime: progress.currentTime || 0,
       });
     }

@@ -16,45 +16,7 @@ export async function GET(request: NextRequest) {
     const rangeHeader = request.headers.get("range");
     const isExplicitM3U8 = streamUrl.toLowerCase().includes(".m3u8");
 
-    // 1. If it's a binary video (MP4, MKV, etc.), resolve 302 redirects with VLC User-Agent
-    // and redirect the client directly to the high-speed CDN server.
-    // This gives instant start, native range seeking, zero Vercel timeout, and never drops!
-    if (!isExplicitM3U8) {
-      try {
-        let current = streamUrl;
-        for (let i = 0; i < 4; i++) {
-          const checkRes = await fetch(current, {
-            method: "GET",
-            headers: {
-              "User-Agent": USER_AGENT,
-              Range: "bytes=0-1",
-            },
-            redirect: "manual",
-          });
-          if (
-            checkRes.status === 301 ||
-            checkRes.status === 302 ||
-            checkRes.status === 307 ||
-            checkRes.status === 308
-          ) {
-            const loc = checkRes.headers.get("location");
-            if (loc) {
-              current = loc;
-              continue;
-            }
-          }
-          break;
-        }
-
-        if (current && current !== streamUrl) {
-          return NextResponse.redirect(current, 307);
-        }
-      } catch (e) {
-        console.warn("Could not pre-resolve redirect, falling back to proxy chunks:", e);
-      }
-    }
-
-    // 2. If it might be an M3U8 playlist, inspect its content first
+    // 1. If it's an M3U8 playlist, inspect its content and rewrite segments
     if (isExplicitM3U8) {
       const res = await fetch(streamUrl, {
         headers: {
